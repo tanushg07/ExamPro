@@ -1,0 +1,13 @@
+Dear {{ user.username }},
+
+A student ({{ student_name }}) has submitted a review for your exam "{{ exam_title }}".
+
+You can view this review and other student feedback through your teacher dashboard.
+
+Best regards,
+Exam Platform Team
+
+You can view this review and other feedback through your teacher dashboard.
+
+Best regards,
+Exam Platform Team

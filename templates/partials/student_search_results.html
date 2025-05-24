@@ -1,0 +1,39 @@
+{% if exams %}
+    <div class="list-group">
+        {% for exam in exams %}
+            <div class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ exam.title }}</h5>
+                    <small>{{ exam.time_limit_minutes }} minutes</small>
+                </div>
+                <p class="mb-1">{{ exam.description|truncate(100) }}</p>
+                <div class="d-flex justify-content-end mt-2">
+                    {% if exam.id in attempts and attempts[exam.id].is_completed %}
+                        <a href="{{ url_for('student.view_result', attempt_id=attempts[exam.id].id) }}" 
+                           class="btn btn-sm btn-info">
+                           <i class="fas fa-chart-bar me-1"></i>
+                           View Results
+                        </a>
+                    {% elif exam.id in attempts %}
+                        <a href="{{ url_for('student.take_exam', exam_id=exam.id) }}" 
+                           class="btn btn-sm btn-warning">
+                           <i class="fas fa-redo me-1"></i>
+                           Continue Exam
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('student.take_exam', exam_id=exam.id) }}" 
+                           class="btn btn-sm btn-primary">
+                           <i class="fas fa-pencil-alt me-1"></i>
+                           Take Exam
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        No exams found matching "{{ query }}".
+    </div>
+{% endif %}

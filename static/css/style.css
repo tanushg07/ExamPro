@@ -1,0 +1,102 @@
+/* Custom styles for the Exam Management System */
+
+/* General styling */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+footer {
+    margin-top: auto;
+}
+
+/* Form styling */
+.form-label {
+    font-weight: 500;
+}
+
+/* Card styling */
+.card {
+    border-radius: 0.5rem;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
+}
+
+/* Button styling */
+.btn {
+    border-radius: 0.25rem;
+}
+
+/* Custom colors */
+.bg-light {
+    background-color: #f8f9fa !important;
+}
+
+/* Exam timer styling */
+#timer {
+    transition: all 0.3s ease;
+}
+
+#timer.warning {
+    background-color: #fff3cd !important;
+}
+
+#timer.danger {
+    background-color: #f8d7da !important;
+}
+
+/* MCQ option styling */
+.form-check-label {
+    cursor: pointer;
+}
+
+/* Code input styling */
+textarea[name*="code"] {
+    font-family: 'Courier New', Courier, monospace;
+}
+
+/* Dashboard card hover effect */
+.card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Custom list group item colors */
+.list-group-item-success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+}
+
+.list-group-item-danger {
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+/* Table row hover effect */
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
+    
+    h1 {
+        font-size: 1.8rem;
+    }
+    
+    .lead {
+        font-size: 1rem;
+    }
+}

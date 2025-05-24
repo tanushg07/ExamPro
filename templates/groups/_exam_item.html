@@ -1,0 +1,34 @@
+<div class="list-group-item">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="mb-1">{{ exam.title }}</h5>
+            <p class="mb-1 text-muted">{{ exam.description or 'No description' }}</p>
+        </div>
+        <div class="text-end">
+            <div class="text-muted mb-2">
+                {% if exam.start_time %}
+                    <small>Starts: {{ exam.start_time.strftime('%Y-%m-%d %H:%M') }}</small><br>
+                {% endif %}
+                {% if exam.end_time %}
+                    <small>Ends: {{ exam.end_time.strftime('%Y-%m-%d %H:%M') }}</small>
+                {% endif %}
+            </div>
+            <div>
+                {% if is_teacher %}
+                    <a href="{{ url_for('teacher.view_exam', exam_id=exam.id) }}" 
+                       class="btn btn-sm btn-outline-primary">View Details</a>
+                {% else %}
+                    {% if exam.is_active() %}
+                        <a href="{{ url_for('student.take_exam', exam_id=exam.id) }}" 
+                           class="btn btn-sm btn-primary">Take Exam</a>
+                    {% elif exam.is_upcoming() %}
+                        <button class="btn btn-sm btn-secondary" disabled>Not Started</button>
+                    {% else %}
+                        <a href="{{ url_for('student.view_result', exam_id=exam.id) }}" 
+                           class="btn btn-sm btn-outline-secondary">View Results</a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>

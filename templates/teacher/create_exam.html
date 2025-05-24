@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Exam - Exam Management System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col">
+        <h1>Create New Exam</h1>
+        <p class="lead">Fill out the form below to create a new exam.</p>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-body">                <form method="POST" action="{{ url_for('teacher.create_exam') }}">                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.group_id.label(class="form-label") }}
+                        {{ form.group_id(class="form-select") }}
+                        {% if form.group_id.errors %}
+                            <div class="text-danger">
+                                {% for error in form.group_id.errors %}
+                                    <small>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.title.label(class="form-label") }}
+                        {{ form.title(class="form-control") }}
+                        {% if form.title.errors %}
+                            <div class="text-danger">
+                                {% for error in form.title.errors %}
+                                    <small>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.description.label(class="form-label") }}
+                        {{ form.description(class="form-control", rows=4) }}
+                        {% if form.description.errors %}
+                            <div class="text-danger">
+                                {% for error in form.description.errors %}
+                                    <small>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.time_limit_minutes.label(class="form-label") }}
+                        {{ form.time_limit_minutes(class="form-control") }}
+                        <div class="form-text">The time students have to complete the exam (in minutes).</div>
+                        {% if form.time_limit_minutes.errors %}
+                            <div class="text-danger">
+                                {% for error in form.time_limit_minutes.errors %}
+                                    <small>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        {{ form.is_published(class="form-check-input") }}
+                        {{ form.is_published.label(class="form-check-label") }}
+                        <div class="form-text">If checked, students will be able to take the exam immediately.</div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">Cancel</a>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Tips for Creating Exams</h5>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>Start with a clear, descriptive title</li>
+                    <li>Set an appropriate time limit for the number of questions</li>
+                    <li>After creating the exam, you'll be able to add questions</li>
+                    <li>You can add multiple choice, code, and text questions</li>
+                    <li>You can publish the exam later if you leave it as a draft now</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

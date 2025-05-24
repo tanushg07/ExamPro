@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>{{ group.name }}</h2>
+            <p class="text-muted mb-0">
+                {% if group.subject %}{{ group.subject }}{% endif %}
+                {% if group.section %} - Section {{ group.section }}{% endif %}
+                {% if group.room %} • Room {{ group.room }}{% endif %}
+            </p>
+        </div>
+        {% if is_teacher %}
+            <div>
+                <a href="{{ url_for('teacher.create_exam') }}" class="btn btn-primary me-2">Create Exam</a>
+                <a href="{{ url_for('group.list_members', group_id=group.id) }}" 
+                   class="btn btn-outline-secondary">Manage Members</a>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">About</h5>
+                    <p class="card-text">{{ group.description or 'No description provided.' }}</p>
+                    {% if is_teacher %}
+                        <div class="alert alert-info">
+                            <strong>Group Code:</strong> {{ group.code }}
+                            <br>
+                            <small>Share this code with students to let them join the group.</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <ul class="nav nav-tabs" id="examTabs" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="active-tab" data-bs-toggle="tab" href="#active" role="tab">
+                            Active
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="upcoming-tab" data-bs-toggle="tab" href="#upcoming" role="tab">
+                            Upcoming
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="past-tab" data-bs-toggle="tab" href="#past" role="tab">
+                            Past
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="tab-content mt-3" id="examTabContent">
+                    <!-- Active Exams -->
+                    <div class="tab-pane fade show active" id="active" role="tabpanel">
+                        {% set active_exams = group.get_active_exams() %}
+                        {% if active_exams %}
+                            <div class="list-group">
+                                {% for exam in active_exams %}
+                                    {% include 'groups/_exam_item.html' %}
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">No active exams at the moment.</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Upcoming Exams -->
+                    <div class="tab-pane fade" id="upcoming" role="tabpanel">
+                        {% set upcoming_exams = group.get_upcoming_exams() %}
+                        {% if upcoming_exams %}
+                            <div class="list-group">
+                                {% for exam in upcoming_exams %}
+                                    {% include 'groups/_exam_item.html' %}
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">No upcoming exams scheduled.</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Past Exams -->
+                    <div class="tab-pane fade" id="past" role="tabpanel">
+                        {% set past_exams = group.get_past_exams() %}
+                        {% if past_exams %}
+                            <div class="list-group">
+                                {% for exam in past_exams %}
+                                    {% include 'groups/_exam_item.html' %}
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">No past exams.</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Class Info</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Teacher:</strong> {{ group.teacher.username }}</p>
+                    <p><strong>Created:</strong> {{ group.created_at.strftime('%Y-%m-%d') }}</p>
+                    <p><strong>Members:</strong> {{ group.members|length }}</p>                    {% if is_teacher %}
+                        <form action="{{ url_for('group.archive_group', group_id=group.id) }}" method="POST" class="mb-2">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-warning w-100"
+                                    onclick="return confirm('Are you sure you want to archive this class?')">
+                                {% if group.archived %}Unarchive{% else %}Archive{% endif %} Class
+                            </button>
+                        </form>
+                    {% endif %}{% if not is_teacher %}
+                        <form action="{{ url_for('group.leave_group', group_id=group.id) }}" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger w-100"
+                                    onclick="return confirm('Are you sure you want to leave this class?')">
+                                Leave Class
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

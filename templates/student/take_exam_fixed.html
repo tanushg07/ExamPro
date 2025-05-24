@@ -1,0 +1,656 @@
+{% extends "base.html" %}
+
+{% block title %}Take Exam - {{ exam.title }}{% endblock %}
+
+{% block styles %}
+<style>
+    /* Timer styling */
+    #timer {
+        position: sticky;
+        top: 70px;
+        z-index: 100;
+        transition: all 0.3s ease;
+    }
+    
+    #timer .card-body {
+        background-color: rgba(248, 249, 250, 0.95);
+    }
+
+    #timer.warning h3 {
+        color: #ffc107 !important;
+        animation: pulse 2s infinite;
+    }
+
+    #timer.danger h3 {
+        color: #dc3545 !important;
+        animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    
+    /* Exam container styling */
+    #exam-container {
+        background-color: #fff;
+        transition: all 0.3s ease;
+    }
+    
+    .exam-controls {
+        position: sticky;
+        top: 10px;
+        z-index: 1000;
+        background-color: rgba(248, 249, 250, 0.95);
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        backdrop-filter: blur(5px);
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+    }
+
+    .exam-controls button {
+        transition: all 0.2s ease;
+    }
+
+    .exam-controls button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Question card styling */
+    .card {
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        margin-bottom: 1.5rem;
+    }
+
+    .card:hover {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        padding: 1rem;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+
+    /* Form controls styling */
+    .form-control {
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.15);
+        border-color: #007bff;
+    }
+
+    /* Action buttons styling */
+    .btn {
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        letter-spacing: 0.3px;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        border: none;
+    }
+
+    .btn-primary:hover {
+        background-color: #0056b3;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-secondary {
+        background-color: #6c757d;
+        border: none;
+    }
+
+    .btn-secondary:hover {
+        background-color: #545b62;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Disable text selection for anti-copy */
+    .no-copy {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+    }
+    
+    /* Fullscreen mode styling */
+    .fullscreen {
+        background-color: white;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 9999;
+        overflow-y: auto;
+        padding: 2rem;
+    }
+
+    /* Code editor styling */
+    textarea[style*="monospace"] {
+        font-family: 'Consolas', 'Monaco', monospace;
+        line-height: 1.5;
+        tab-size: 4;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+    }
+
+    /* Radio buttons and checkboxes styling */
+    .form-check {
+        padding-left: 1.8rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .form-check-input {
+        margin-left: -1.8rem;
+        cursor: pointer;
+    }
+
+    .form-check-label {
+        cursor: pointer;
+        padding: 0.2rem 0;
+        transition: all 0.2s ease;
+    }
+
+    .form-check-label:hover {
+        color: #007bff;
+    }
+
+    /* Modal styling */
+    .modal-content {
+        border: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-header {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .modal-footer {
+        border-top: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    /* Save button states */
+    #save-progress-btn.saving {
+        background-color: #ffc107;
+        color: #000;
+    }
+
+    #save-progress-btn.saved {
+        background-color: #28a745;
+        color: #fff;
+    }
+
+    #save-progress-btn.error {
+        background-color: #dc3545;
+        color: #fff;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .exam-controls {
+            flex-direction: column !important;
+            gap: 1rem;
+        }
+
+        #timer {
+            position: fixed;
+            top: auto;
+            bottom: 0;
+            right: 0;
+            margin: 1rem;
+            z-index: 1050;
+        }
+    }
+
+    /* Loading indicator */
+    .loading-spinner {
+        display: inline-block;
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+        margin-right: 0.5rem;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Fullscreen warning */
+    .fullscreen-warning {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(220, 53, 69, 0.95);
+        color: white;
+        padding: 2rem;
+        border-radius: 8px;
+        text-align: center;
+        z-index: 10000;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        max-width: 400px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Exam availability message area -->
+<div id="availability-message"></div>
+
+<div id="exam-container" class="no-copy">
+    <div class="exam-controls d-flex justify-content-between align-items-center">
+        <div class="d-flex gap-2">
+            <button type="button" id="fullscreen-toggle" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-expand"></i> Enter Fullscreen
+            </button>
+            <button type="button" id="leave-exam-btn" class="btn btn-sm btn-outline-danger">
+                <i class="fas fa-sign-out-alt"></i> Leave Exam
+            </button>
+        </div>        <div id="timer" class="card shadow-sm mb-0">
+            <div class="card-body py-2 px-3 text-center">
+                <h6 class="mb-0 text-muted">Time Remaining</h6>
+                <h3 id="exam-timer" class="mb-0">--:--:--</h3>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast for time warning -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 5">
+        <div id="time-warning-toast" class="toast align-items-center text-white bg-warning" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="10000">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="bi bi-alarm-fill me-2"></i> You have 5 minutes remaining on your exam!
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <h1 class="display-6">{{ exam.title }}</h1>
+            <p class="lead text-muted mb-4">{{ exam.description }}</p>
+        </div>
+    </div>    <form method="POST" action="{{ url_for('student.take_exam', exam_id=exam.id) }}" id="examForm" class="needs-validation" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="questions-container">
+            {% for question in questions %}
+            <div class="card shadow-sm mb-4 question-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <span class="text-muted small me-2">#{{ loop.index }}</span>
+                        Question
+                    </h5>
+                    <span class="badge bg-primary px-3 py-2">{{ question.points }} points</span>
+                </div>
+                <div class="card-body">
+                    <div class="question-text mb-4">
+                        {{ question.question_text | safe }}
+                    </div>
+                    
+                    {% if question.question_type == 'mcq' %}
+                    <div class="options-container">
+                        {% set form = answer_forms[question.id] %}
+                        {{ form.hidden_tag() }}
+                        <input type="hidden" name="question_id" value="{{ question.id }}">
+                        
+                        {% for option in question.options %}
+                        <div class="form-check custom-radio mb-3">
+                            <input type="radio" 
+                                   id="option_{{ option.id }}" 
+                                   name="answer_{{ question.id }}" 
+                                   value="{{ option.id }}" 
+                                   class="form-check-input answer-input"
+                                   {% if form.selected_option.data == option.id %}checked{% endif %}>
+                            <label class="form-check-label" for="option_{{ option.id }}">
+                                {{ option.option_text }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% elif question.question_type == 'text' %}
+                    <div class="text-answer-container">
+                        {% set form = answer_forms[question.id] %}
+                        {{ form.hidden_tag() }}
+                        <input type="hidden" name="question_id" value="{{ question.id }}">
+                        <textarea class="form-control answer-input"
+                                  rows="5"
+                                  name="answer_{{ question.id }}"
+                                  placeholder="Enter your answer here..."
+                                  >{{ form.answer_text.data or '' }}</textarea>
+                    </div>
+                    {% elif question.question_type == 'code' %}
+                    <div class="code-answer-container">
+                        {% set form = answer_forms[question.id] %}
+                        {{ form.hidden_tag() }}
+                        <input type="hidden" name="question_id" value="{{ question.id }}">
+                        <textarea class="form-control code-editor answer-input"
+                                  rows="10"
+                                  style="font-family: monospace;"
+                                  name="answer_{{ question.id }}"
+                                  placeholder="Write your code here..."
+                                  >{{ form.code_answer.data or '' }}</textarea>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="d-flex justify-content-between align-items-center sticky-bottom bg-light p-3 rounded-3 shadow-sm mb-5">
+            <button type="button" name="save_answers" class="btn btn-outline-secondary" id="save-progress-btn">
+                <i class="fas fa-save"></i> Save Progress
+                <span id="lastSaved" class="ms-2 small text-muted"></span>
+            </button>
+            <button type="button" class="btn btn-primary btn-lg px-4" id="submit-exam-btn">
+                <i class="fas fa-check-circle me-2"></i> Submit Exam
+            </button>
+        </div>
+    </form>
+
+    <!-- Leave exam modal -->
+    <div class="modal fade" id="leaveExamModal" tabindex="-1" aria-labelledby="leaveExamModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="leaveExamModalLabel">
+                        <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                        Leave Exam
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-danger mb-2">Are you sure you want to leave the exam?</p>
+                    <p class="text-muted mb-0">Your current answers will be saved, but the exam will be marked as incomplete.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="button" id="confirmLeave" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i> Leave Exam
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error modal -->
+    <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="errorModalLabel">
+                        <i class="fas fa-exclamation-circle text-danger me-2"></i>
+                        Error
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="errorMessage" class="mb-0"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                    <button type="button" id="retryAction" class="btn btn-primary">
+                        <i class="fas fa-redo"></i> Retry
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const startTime = new Date('{{ attempt.started_at.isoformat() }}Z');
+    const durationMinutes = {{ exam.duration or exam.time_limit_minutes or 60 }};
+    const examForm = document.getElementById('examForm');
+    const lastSavedSpan = document.getElementById('lastSaved');
+    const leaveExamBtn = document.getElementById('leave-exam-btn');
+    const leaveExamModal = new bootstrap.Modal(document.getElementById('leaveExamModal'));
+    const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+    const errorMessage = document.getElementById('errorMessage');
+    const retryButton = document.getElementById('retryAction');
+    const timerElement = document.getElementById('exam-timer');
+    const timerContainer = document.getElementById('timer');
+    const submitExamBtn = document.getElementById('submit-exam-btn');
+    
+    let autoSaveTimeout;
+    let isSubmitting = false;
+    let lastSavedSuccessfully = true;
+
+    // Timer function
+    function updateTimer() {
+        const now = new Date();
+        const endTime = new Date(startTime.getTime() + (durationMinutes * 60 * 1000));
+        const timeLeft = endTime - now;
+
+        if (timeLeft <= 0) {
+            timerElement.textContent = 'Time Expired!';
+            timerContainer.classList.add('danger');
+            if (!isSubmitting) {
+                isSubmitting = true;
+                submitExam(true);
+            }
+            return;
+        }
+
+        const hours = Math.floor(timeLeft / 3600000);
+        const minutes = Math.floor((timeLeft % 3600000) / 60000);
+        const seconds = Math.floor((timeLeft % 60000) / 1000);
+        
+        timerElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        // Add warning class when less than 5 minutes remaining
+        if (timeLeft < 300000 && !timerContainer.classList.contains('warning') && !timerContainer.classList.contains('danger')) {
+            timerContainer.classList.add('warning');
+            const toast = new bootstrap.Toast(document.getElementById('time-warning-toast'));
+            toast.show();
+        }
+        
+        // Add danger class when less than 1 minute remaining
+        if (timeLeft < 60000 && !timerContainer.classList.contains('danger')) {
+            timerContainer.classList.remove('warning');
+            timerContainer.classList.add('danger');
+        }
+    }
+
+    // Start timer
+    updateTimer();
+    const timerInterval = setInterval(updateTimer, 1000);
+
+    // Auto-save function with retry mechanism
+    async function saveAnswers(retryCount = 0) {
+        if (retryCount > 3) {
+            lastSavedSuccessfully = false;
+            showError('Failed to save answers after multiple attempts. Please check your connection.');
+            return;
+        }
+
+        try {
+            const formData = new FormData(examForm);
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                lastSavedSuccessfully = true;
+                lastSavedSpan.textContent = 'Last saved: ' + new Date().toLocaleTimeString();
+                lastSavedSpan.classList.remove('text-danger');
+                lastSavedSpan.classList.add('text-muted');
+            } else if (data.redirect_url) {
+                window.location.href = data.redirect_url;
+            } else {
+                throw new Error(data.message || 'Error saving answers');
+            }
+        } catch (error) {
+            console.error('Save error:', error);
+            lastSavedSuccessfully = false;
+            lastSavedSpan.textContent = 'Failed to save! Retrying...';
+            lastSavedSpan.classList.remove('text-muted');
+            lastSavedSpan.classList.add('text-danger');
+            
+            // Retry after a delay
+            setTimeout(() => saveAnswers(retryCount + 1), 2000);
+        }
+    }
+
+    // Setup auto-save with throttling
+    function setupAutoSave() {
+        let saveTimeout;
+        const inputs = document.querySelectorAll('.answer-input');
+        
+        function triggerSave() {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(saveAnswers, 2000); // Wait 2 seconds after last change
+        }
+
+        inputs.forEach(input => {
+            input.addEventListener('change', triggerSave);
+            if (input.tagName === 'TEXTAREA') {
+                input.addEventListener('input', triggerSave);
+            }
+        });
+        
+        // Also save periodically regardless of changes
+        setInterval(saveAnswers, 60000); // Every minute
+    }
+
+    // Show error modal with retry option
+    function showError(message, canRetry = false) {
+        errorMessage.textContent = message;
+        retryButton.style.display = canRetry ? 'block' : 'none';
+        errorModal.show();
+    }
+
+    // Handle exam submission with retry mechanism
+    async function submitExam(isAutoSubmit = false) {
+        if (!lastSavedSuccessfully && !isAutoSubmit) {
+            const shouldProceed = confirm('Some answers may not be saved. Do you want to proceed with submission anyway?');
+            if (!shouldProceed) {
+                isSubmitting = false;
+                return;
+            }
+        }
+
+        try {
+            const formData = new FormData(examForm);
+            formData.append('submit_exam', '1');
+
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                if (isAutoSubmit) {
+                    alert('Time is up! Your exam has been submitted.');
+                }
+                window.location.href = data.redirect_url;
+            } else if (data.redirect_url) {
+                window.location.href = data.redirect_url;
+            } else {
+                throw new Error(data.message || 'Submission failed');
+            }
+        } catch (error) {
+            console.error('Submission error:', error);
+            showError('Failed to submit exam. Your answers are saved. Would you like to try again?', true);
+            isSubmitting = false;
+        }
+    }
+
+    // Handle leave exam functionality
+    async function handleLeave() {
+        try {
+            // Save answers one last time before leaving
+            await saveAnswers();
+            window.location.href = '{{ url_for("main.dashboard") }}';
+        } catch (error) {
+            showError('Failed to save answers before leaving. Would you like to try again?', true);
+        }
+    }
+
+    // Setup form submission
+    submitExamBtn.addEventListener('click', function(e) {
+        if (!isSubmitting) {
+            isSubmitting = true;
+            submitExam();
+        }
+    });
+
+    // Setup leave exam button
+    leaveExamBtn.addEventListener('click', function() {
+        leaveExamModal.show();
+    });
+
+    // Setup confirm leave button
+    document.getElementById('confirmLeave').addEventListener('click', async function() {
+        leaveExamModal.hide();
+        await handleLeave();
+    });
+
+    // Setup retry button
+    retryButton.addEventListener('click', function() {
+        errorModal.hide();
+        if (isSubmitting) {
+            submitExam();
+        } else {
+            saveAnswers();
+        }
+    });
+    
+    // Initialize auto-save
+    setupAutoSave();
+    
+    // Save answers immediately on page load
+    saveAnswers();
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function(e) {
+        clearInterval(timerInterval);
+        if (!lastSavedSuccessfully) {
+            e.preventDefault();
+            e.returnValue = '';
+            return '';
+        }
+    });
+});
+</script>
+{% endblock %}

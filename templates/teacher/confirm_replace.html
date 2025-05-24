@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirm Question Replacement{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow">
+        <div class="card-header bg-warning text-dark">
+            <h4 class="mb-0">Confirm Question Replacement</h4>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>Warning:</strong> You are about to replace all existing questions in "{{ exam.title }}"
+            </div>
+            
+            <h5>This action will:</h5>
+            <ul>
+                <li>Delete all {{ existing_questions }} existing questions</li>
+                <li>Import new questions from the uploaded file</li>
+                <li>This action cannot be undone</li>
+            </ul>
+            
+            <p>Are you sure you want to proceed?</p>
+            
+            <div class="d-flex justify-content-end mt-4">
+                <a href="{{ url_for('teacher.import_questions', exam_id=exam.id) }}" class="btn btn-secondary me-2">Cancel</a>
+                <form method="POST" action="{{ url_for('teacher.import_questions', exam_id=exam.id) }}" enctype="multipart/form-data">
+                    {{ form.csrf_token }}
+                    {{ form.template_file }}
+                    <input type="hidden" name="replace_existing" value="y">
+                    <input type="hidden" name="confirm_replace" value="true">
+                    <button type="submit" class="btn btn-warning">Confirm Replacement</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

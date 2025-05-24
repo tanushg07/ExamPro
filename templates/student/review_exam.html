@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+
+{% block title %}Review Exam - {{ exam.title }}{% endblock %}
+
+{% block styles %}
+<style>
+    .rating {
+        display: flex;
+        flex-direction: row-reverse;
+        justify-content: center;
+    }
+    
+    .rating input {
+        display: none;
+    }
+    
+    .rating label {
+        font-size: 2rem;
+        color: #ccc;
+        cursor: pointer;
+        padding: 0 0.2em;
+    }
+    
+    .rating input:checked ~ label {
+        color: #ffc700;
+    }
+    
+    .rating label:hover,
+    .rating label:hover ~ label {
+        color: #ffc700;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1>Review Exam</h1>
+        <p class="lead">{{ exam.title }}</p>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{{ url_for('student.view_result', attempt_id=current_user.exam_attempts.filter_by(exam_id=exam.id, is_completed=True).first().id) }}" class="btn btn-secondary">
+            Back to Results
+        </a>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">{% if existing_review %}Update Your Review{% else %}Submit a Review{% endif %}</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5>{{ form.rating.label }}</h5>
+                            <span class="selected-rating"></span>
+                        </div>
+                        
+                        <div class="rating mb-3">
+                            {% for subfield in form.rating %}
+                                {{ subfield }}
+                                <label for="{{ subfield.id }}">★</label>
+                            {% endfor %}
+                        </div>
+                        
+                        {% if form.rating.errors %}
+                        <div class="text-danger">
+                            {% for error in form.rating.errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h5>{{ form.feedback.label }}</h5>
+                        {{ form.feedback(class="form-control", rows=5) }}
+                        <div class="form-text text-muted">
+                            Your feedback helps improve future exams
+                        </div>
+                        {% if form.feedback.errors %}
+                        <div class="text-danger">
+                            {% for error in form.feedback.errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Update the selected rating text when radio buttons change
+    document.addEventListener('DOMContentLoaded', function() {
+        const ratingInputs = document.querySelectorAll('input[name="rating"]');
+        const selectedRatingSpan = document.querySelector('.selected-rating');
+        
+        // Show initial selection
+        const checkedInput = document.querySelector('input[name="rating"]:checked');
+        if (checkedInput) {
+            selectedRatingSpan.textContent = checkedInput.nextElementSibling.textContent;
+        }
+        
+        // Update on change
+        ratingInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                selectedRatingSpan.textContent = this.nextElementSibling.textContent;
+            });
+        });
+    });
+</script>
+{% endblock %}

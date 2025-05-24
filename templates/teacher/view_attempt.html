@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}View Attempt - {{ attempt.exam.title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('teacher.view_exam_attempts', exam_id=attempt.exam.id) }}">{{ attempt.exam.title }}</a></li>
+                    <li class="breadcrumb-item active">Attempt Details</li>
+                </ol>
+            </nav>
+
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Attempt Details</h5>
+                    <span class="badge {% if attempt.is_completed %}bg-success{% else %}bg-warning{% endif %}">
+                        {{ 'Completed' if attempt.is_completed else 'In Progress' }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Student:</strong> {{ attempt.student.username }}</p>
+                            <p><strong>Started:</strong> {{ attempt.started_at|datetime }}</p>
+                            {% if attempt.completed_at %}
+                            <p><strong>Completed:</strong> {{ attempt.completed_at|datetime }}</p>
+                            {% endif %}
+                            {% if attempt.score is not none %}
+                            <p><strong>Score:</strong> {{ "%.1f"|format(attempt.score) }}%</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Browser:</strong> {{ attempt.user_agent or 'Not available' }}</p>
+                            <p><strong>IP Address:</strong> {{ attempt.ip_address or 'Not available' }}</p>
+                            <p><strong>Security Status:</strong> 
+                                <span class="badge bg-{{ {'pending': 'warning', 'approved': 'success', 'flagged': 'danger'}[attempt.verification_status] }}">
+                                    {{ attempt.verification_status|title }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if answers %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Answers</h5>
+                </div>
+                <div class="card-body">
+                    {% for answer in answers %}
+                    <div class="mb-4">
+                        <h6>Question {{ loop.index }}</h6>
+                        <p class="mb-2">{{ answer.question.question_text }}</p>
+                        
+                        {% if answer.question.question_type == 'mcq' %}
+                            {% if answer.selected_option %}
+                            <p><strong>Selected:</strong> {{ answer.selected_option.option_text }}</p>
+                            {% else %}
+                            <p class="text-muted">No option selected</p>
+                            {% endif %}
+                        {% elif answer.question.question_type == 'text' %}
+                            <p><strong>Answer:</strong> {{ answer.text_answer or 'No answer provided' }}</p>
+                        {% elif answer.question.question_type == 'code' %}
+                            <pre><code>{{ answer.code_answer or 'No code provided' }}</code></pre>
+                        {% endif %}
+                        
+                        <p>
+                            <span class="badge {% if answer.is_correct %}bg-success{% elif answer.is_correct == False %}bg-danger{% else %}bg-warning{% endif %}">
+                                {% if answer.is_correct %}Correct
+                                {% elif answer.is_correct == False %}Incorrect
+                                {% else %}Needs Grading{% endif %}
+                            </span>
+                            {% if answer.is_correct != None %}
+                            <em class="text-muted">{{ answer.teacher_feedback or 'No feedback provided' }}</em>
+                            {% endif %}
+                        </p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-info">No answers submitted yet.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

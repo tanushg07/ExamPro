@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Dashboard - Exam Management System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col">
+        <h1>Student Dashboard</h1>
+        <p class="lead">Welcome to your dashboard. Here you can view available exams and your results.</p>
+    </div>
+</div>
+
+<hr>
+
+<!-- Class Join Card -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Your Classes</h5>
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#joinClassModal">
+                    <i class="bi bi-plus-circle me-1"></i> Join Class
+                </button>
+            </div>
+            <div class="card-body">
+                {% if current_user.joined_groups.count() > 0 %}
+                    <div class="list-group">
+                        {% for group in current_user.joined_groups %}
+                            <a href="{{ url_for('group.view_group', group_id=group.id) }}" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1">{{ group.name }}</h5>
+                                    <small>{{ group.students.count() }} students</small>
+                                </div>
+                                {% if group.subject %}
+                                    <p class="mb-1">{{ group.subject }}</p>
+                                {% endif %}
+                                <small class="text-muted">Teacher: {{ group.teacher.username }}</small>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-people-fill fs-1 text-muted mb-3"></i>
+                        <h5>You haven't joined any classes yet</h5>
+                        <p class="text-muted mb-3">Join a class to access course materials and exams</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#joinClassModal">
+                            <i class="bi bi-plus-circle me-2"></i> Join a Class
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Your Progress</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center mb-3">
+                        <div class="display-4">{{ completed_exams|length }}</div>
+                        <div class="text-muted">Exams Completed</div>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <div class="display-4 text-primary">
+                            {% if completed_exams|length > 0 %}
+                                {{ "%.1f"|format(average_score) }}%
+                            {% else %}
+                                -
+                            {% endif %}
+                        </div>
+                        <div class="text-muted">Average Score</div>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <div class="display-4 text-success">
+                            {% if available_exams|length > 0 %}
+                                {{ ((completed_exams|length / available_exams|length) * 100)|int }}%
+                            {% else %}
+                                -
+                            {% endif %}
+                        </div>
+                        <div class="text-muted">Completion Rate</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Available Exams</h5>
+            </div>
+            <div class="card-body">
+                {% if available_exams %}
+                    <div class="list-group">
+                        {% for exam in available_exams %}
+                            {% if exam not in completed_exams %}                                <div class="list-group-item list-group-item-action">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h5 class="mb-1">{{ exam.title }}</h5>
+                                        <small>{{ exam.time_limit_minutes }} minutes</small>
+                                    </div>
+                                    <p class="mb-1">{{ exam.description|truncate(100) }}</p>
+                                    
+                                    {% set rating = exam.get_average_rating() %}
+                                    {% if rating %}
+                                    <div class="mt-2 mb-2">
+                                        <small class="text-muted me-2">Rating:</small>
+                                        <span class="text-warning">
+                                            {% for i in range(1, 6) %}
+                                                {% if i <= rating|round(0, 'common') %}★{% else %}☆{% endif %}
+                                            {% endfor %}
+                                        </span>
+                                        <small class="text-muted ms-1">({{ rating }})</small>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <div class="d-flex justify-content-end mt-2">
+                                        <a href="{{ url_for('student.take_exam', exam_id=exam.id) }}" 
+                                           class="btn btn-sm btn-primary">
+                                            Take Exam
+                                        </a>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-center py-3 mb-0">No exams are currently available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Completed Exams</h5>
+            </div>
+            <div class="card-body">
+                {% if completed_exams %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Completed On</th>
+                                    <th>Results</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for exam in completed_exams %}
+                                    {% set attempt = current_user.exam_attempts.filter_by(exam_id=exam.id, is_completed=True).first() %}
+                                    <tr>
+                                        <td>{{ exam.title }}</td>
+                                        <td>{{ attempt.completed_at.strftime('%Y-%m-%d %H:%M') if attempt.completed_at else 'N/A' }}</td>
+                                        <td>
+                                            <a href="{{ url_for('student.view_result', attempt_id=attempt.id) }}" 
+                                               class="btn btn-sm btn-info">
+                                                View Results
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-center py-3 mb-0">You haven't completed any exams yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Class Join Modal -->
+<div class="modal fade" id="joinClassModal" tabindex="-1" aria-labelledby="joinClassModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="joinClassModalLabel">Join a Class</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{{ url_for('group.join_group') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="code" class="form-label">Class Code</label>
+                        <input type="text" class="form-control" id="code" name="code" placeholder="Enter the class code (e.g., ABC123)" required>
+                        <div class="form-text">Your teacher will give you a class code to join.</div>
+                    </div>
+                    <div class="text-end">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Join Class</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

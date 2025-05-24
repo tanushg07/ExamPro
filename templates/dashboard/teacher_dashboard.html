@@ -1,0 +1,481 @@
+{% extends 'base.html' %}
+
+{% block title %}Teacher Dashboard - Exam Management System{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .stats-card {
+        transition: transform 0.3s;
+    }
+    .stats-card:hover {
+        transform: translateY(-5px);
+    }
+    .activity-item {
+        border-left: 3px solid #007bff;
+        padding-left: 15px;
+        margin-bottom: 15px;
+    }
+    .quick-action-card {
+        transition: all 0.3s;
+    }
+    .quick-action-card:hover {
+        background-color: #f8f9fa;
+        cursor: pointer;
+    }
+    .feature-card {
+        border-radius: 10px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        margin-bottom: 20px;
+    }
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1) !important;
+    }
+    .feature-icon {
+        font-size: 2.5rem;
+        margin-bottom: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <h1>Teacher Dashboard</h1>
+        <p class="lead">Welcome back, {{ current_user.username }}! Manage your exams and monitor student progress.</p>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{{ url_for('teacher.create_exam') }}" class="btn btn-primary">
+            <i class="fas fa-plus-circle"></i> Create New Exam
+        </a>
+    </div>
+</div>
+
+<hr>
+
+<!-- Classroom Features -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h3 class="mb-3">Classroom Features</h3>
+    </div>
+    <div class="col-md-3 mb-3">
+        <a href="{{ url_for('group.list_groups') }}" class="text-decoration-none">
+            <div class="card shadow-sm feature-card h-100">
+                <div class="card-body text-center">
+                    <div class="feature-icon text-primary">
+                        <i class="bi bi-people-fill"></i>
+                    </div>
+                    <h5 class="card-title">Classes</h5>
+                    <p class="card-text">Manage your classes and student enrollments</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3 mb-3">
+        <a href="{{ url_for('teacher.gradebook') }}" class="text-decoration-none">
+            <div class="card shadow-sm feature-card h-100">
+                <div class="card-body text-center">
+                    <div class="feature-icon text-success">
+                        <i class="bi bi-journal-check"></i>
+                    </div>
+                    <h5 class="card-title">Gradebook</h5>
+                    <p class="card-text">View student scores across all exams</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3 mb-3">
+        <a href="{{ url_for('teacher.review_queue') }}" class="text-decoration-none">
+            <div class="card shadow-sm feature-card h-100">
+                <div class="card-body text-center">
+                    <div class="feature-icon text-warning">
+                        <i class="bi bi-clipboard-check"></i>
+                    </div>
+                    <h5 class="card-title">Grading Queue</h5>
+                    <p class="card-text">Grade pending student work</p>
+                </div>
+            </div>
+        </a>
+    </div>    <div class="col-md-3 mb-3">
+        <a href="{{ url_for('teacher.view_analytics') }}" class="text-decoration-none">
+            <div class="card shadow-sm feature-card h-100">
+                <div class="card-body text-center">
+                    <div class="feature-icon text-info">
+                        <i class="bi bi-bar-chart-line"></i>
+                    </div>
+                    <h5 class="card-title">Analytics</h5>
+                    <p class="card-text">Insights into student performance</p>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- Dashboard Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card bg-primary text-white stats-card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Total Exams</h5>
+                <h2 class="display-4">{{ exams|length }}</h2>
+                <p class="card-text">Created by you</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card bg-success text-white stats-card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Active Exams</h5>
+                <h2 class="display-4">{{ exams|selectattr('is_published', 'equalto', true)|list|length }}</h2>
+                <p class="card-text">Currently published</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card bg-info text-white stats-card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Pending Reviews</h5>
+                <h2 class="display-4">{{ pending_reviews|default(0) }}</h2>
+                <p class="card-text">Awaiting grading</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card bg-warning text-dark stats-card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Students</h5>
+                <h2 class="display-4">{{ total_students|default(0) }}</h2>
+                <p class="card-text">Enrolled in your exams</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr>
+
+<!-- Main Dashboard Content -->
+<div class="row">
+    <!-- Left Column - Exams -->
+    <div class="col-lg-8">
+        <!-- Exam Management Card -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Your Exams</h5>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-filter"></i> Filter
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#" data-filter="all">All Exams</a></li>
+                        <li><a class="dropdown-item" href="#" data-filter="published">Published Only</a></li>
+                        <li><a class="dropdown-item" href="#" data-filter="draft">Drafts Only</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" data-sort="date">Sort by Date Created</a></li>
+                        <li><a class="dropdown-item" href="#" data-sort="alpha">Sort Alphabetically</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if exams %}
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="exams-table">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Description</th>
+                                    <th>Time Limit</th>
+                                    <th>Questions</th>
+                                    <th>Attempts</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for exam in exams %}
+                                <tr data-status="{% if exam.is_published %}published{% else %}draft{% endif %}">
+                                    <td>{{ exam.title }}</td>
+                                    <td>{{ exam.description|truncate(30) }}</td>
+                                    <td>{{ exam.time_limit_minutes }} minutes</td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ exam.questions.count() }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ exam.attempts.count() }}</span>
+                                    </td>
+                                    <td>
+                                        {% if exam.is_published %}
+                                            <span class="badge bg-success">Published</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">Draft</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                Actions
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li><a href="{{ url_for('teacher.view_exam', exam_id=exam.id) }}" class="dropdown-item">
+                                                    <i class="fas fa-eye"></i> View Details
+                                                </a></li>
+                                                <li><a href="{{ url_for('teacher.edit_exam', exam_id=exam.id) }}" class="dropdown-item">
+                                                    <i class="fas fa-edit"></i> Edit Exam
+                                                </a></li>
+                                                <li><a href="{{ url_for('teacher.view_exam_attempts', exam_id=exam.id) }}" class="dropdown-item">
+                                                    <i class="fas fa-clipboard-check"></i> View Attempts
+                                                </a></li>
+                                                <li><a href="{{ url_for('teacher.exam_analytics', exam_id=exam.id) }}" class="dropdown-item">
+                                                    <i class="fas fa-chart-bar"></i> Analytics
+                                                </a></li>                                                <li><a href="{{ url_for('teacher.edit_exam', exam_id=exam.id) }}" class="dropdown-item">
+                                                    <i class="fas fa-tasks"></i> Edit Questions
+                                                </a></li>
+                                                <li><hr class="dropdown-divider"></li>                                                {% if exam.is_published %}
+                                                <li>
+                                                    <form method="POST" action="{{ url_for('teacher.exam_unpublish', exam_id=exam.id) }}" class="d-inline">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                        <button type="submit" class="dropdown-item text-danger">
+                                                            <i class="fas fa-eye-slash"></i> Unpublish
+                                                        </button>
+                                                    </form>                                                </li>{% else %}                                                <li>
+                                                    <a href="{{ url_for('teacher.publish_exam', exam_id=exam.id) }}" class="dropdown-item text-success">
+                                                        <i class="fas fa-check-circle"></i> Publish
+                                                    </a>
+                                                </li>
+                                                {% endif %}
+                                                <li>
+                                                    <button type="button" class="dropdown-item text-danger" 
+                                                           data-bs-toggle="modal" 
+                                                           data-bs-target="#deleteExamModal" 
+                                                           data-exam-id="{{ exam.id }}"
+                                                           data-exam-title="{{ exam.title }}">
+                                                        <i class="fas fa-trash"></i> Delete
+                                                    </button>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-book fa-3x text-muted mb-3"></i>
+                        <p class="mb-0">You haven't created any exams yet.</p>
+                        <a href="{{ url_for('teacher.create_exam') }}" class="btn btn-primary mt-3">
+                            <i class="fas fa-plus-circle"></i> Create Your First Exam
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-muted small">Showing {{ exams|length }} exams</span>
+                    <a href="{{ url_for('teacher.export_exams') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-file-export"></i> Export Data
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Column - Activity, Quick Actions -->
+    <div class="col-lg-4">
+        <!-- Recent Activity -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Recent Activity</h5>
+            </div>
+            <div class="card-body">                {% if recent_activity %}
+                    <div class="activity-list">
+                        {% for activity in recent_activity %}
+                            <div class="activity-item">
+                                <span class="text-muted small">{{ activity.submitted_at|format_datetime }}</span>
+                                <p class="mb-0">{{ activity.username }} completed "{{ activity.title }}" {% if activity.score %}with score {{ activity.score }}%{% else %}(pending grading){% endif %}</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center">No recent activity to display.</p>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-white">
+                <a href="#" class="btn btn-sm btn-link text-decoration-none">View All Activity</a>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Quick Actions</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    <a href="{{ url_for('teacher.create_exam') }}" class="list-group-item list-group-item-action quick-action-card d-flex align-items-center">
+                        <span class="bg-primary text-white rounded-circle p-2 me-3">
+                            <i class="fas fa-plus"></i>
+                        </span>
+                        <div>
+                            <h6 class="mb-0">Create New Exam</h6>
+                            <small class="text-muted">Design a new assessment</small>
+                        </div>
+                    </a>
+                    <a href="{{ url_for('teacher.review_queue') }}" class="list-group-item list-group-item-action quick-action-card d-flex align-items-center">
+                        <span class="bg-info text-white rounded-circle p-2 me-3">
+                            <i class="fas fa-check-double"></i>
+                        </span>
+                        <div>
+                            <h6 class="mb-0">Grade Pending Submissions</h6>
+                            <small class="text-muted">Review and grade student work</small>
+                        </div>
+                    </a>
+                    <a href="{{ url_for('teacher.view_analytics') }}" class="list-group-item list-group-item-action quick-action-card d-flex align-items-center">
+                        <span class="bg-success text-white rounded-circle p-2 me-3">
+                            <i class="fas fa-chart-line"></i>
+                        </span>
+                        <div>
+                            <h6 class="mb-0">View Analytics</h6>
+                            <small class="text-muted">Analyze student performance</small>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Exam Modal -->
+<div class="modal fade" id="deleteExamModal" tabindex="-1" aria-labelledby="deleteExamModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteExamModalLabel">Delete Exam</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-danger">Are you sure you want to delete <strong id="delete-exam-title"></strong>?</p>
+                <p>This action cannot be undone. All associated questions, submissions, and grades will be permanently deleted.</p>
+            </div>
+            <div class="modal-footer">                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="delete-exam-form" method="POST" action="">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">Delete Permanently</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle exam filtering
+    const filterLinks = document.querySelectorAll('[data-filter]');
+    filterLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const filter = this.getAttribute('data-filter');
+            const rows = document.querySelectorAll('#exams-table tbody tr');
+            
+            rows.forEach(row => {
+                if (filter === 'all') {
+                    row.style.display = '';
+                } else {
+                    const status = row.getAttribute('data-status');
+                    row.style.display = (status === filter) ? '' : 'none';
+                }
+            });
+        });
+    });
+    
+    // Handle sorting
+    const sortLinks = document.querySelectorAll('[data-sort]');
+    sortLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const sortType = this.getAttribute('data-sort');
+            const tbody = document.querySelector('#exams-table tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            rows.sort((a, b) => {
+                const aValue = a.cells[0].innerText.trim();
+                const bValue = b.cells[0].innerText.trim();
+                
+                if (sortType === 'alpha') {
+                    return aValue.localeCompare(bValue);
+                } else {
+                    // Default to date sort (assuming newer items are at the top)
+                    return 0; // This would need actual date data to work properly
+                }
+            });
+            
+            // Clear table and re-add sorted rows
+            while (tbody.firstChild) {
+                tbody.removeChild(tbody.firstChild);
+            }
+            
+            rows.forEach(row => tbody.appendChild(row));
+        });
+    });
+    
+    // Handle delete exam modal
+    const deleteExamModal = document.getElementById('deleteExamModal');
+    if (deleteExamModal) {
+        deleteExamModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const examId = button.getAttribute('data-exam-id');
+            const examTitle = button.getAttribute('data-exam-title');
+            
+            const deleteForm = document.getElementById('delete-exam-form');
+            const examTitleElement = document.getElementById('delete-exam-title');
+            
+            deleteForm.action = "{{ url_for('admin.delete_exam', exam_id=0) }}".replace('0', examId);
+            examTitleElement.textContent = examTitle;
+        });
+    }
+    
+    // Security feature: Auto-logout timer
+    let inactivityTime = 0;
+    const logoutWarningTime = 15 * 60; // 15 minutes
+    const logoutTime = 20 * 60; // 20 minutes
+    const checkInterval = 1000; // 1 second
+    let warningShown = false;
+    
+    // Reset timer on user activity
+    const resetTimer = () => {
+        inactivityTime = 0;
+        if (warningShown) {
+            // Hide warning if shown
+            // Implementation would depend on your UI
+            warningShown = false;
+        }
+    };
+    
+    // User activity events
+    ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(event => {
+        document.addEventListener(event, resetTimer, true);
+    });
+    
+    // Check inactivity
+    setInterval(() => {
+        inactivityTime += checkInterval/1000;
+        
+        // Show warning
+        if (inactivityTime >= logoutWarningTime && !warningShown) {
+            alert('You will be logged out due to inactivity in 5 minutes. Please save your work.');
+            warningShown = true;
+        }
+        
+        // Logout
+        if (inactivityTime >= logoutTime) {
+            window.location.href = '/auth/logout?reason=inactivity';
+        }
+    }, checkInterval);
+});
+</script>
+{% endblock %}

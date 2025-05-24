@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+
+{% block title %}Exam Analytics - {{ exam.title }}{% endblock %}
+
+{% block styles %}
+<style>
+    .chart-container {
+        position: relative;
+        height: 250px;
+        margin-bottom: 2rem;
+    }
+    .question-difficulty {
+        height: 20px;
+        border-radius: 4px;
+        background-color: #e9ecef;
+        overflow: hidden;
+        margin-bottom: 0.5rem;
+    }
+    .difficulty-bar {
+        height: 100%;
+        background-color: #28a745;
+    }
+    .difficult {
+        background-color: #dc3545;
+    }
+    .moderate {
+        background-color: #ffc107;
+    }
+    .easy {
+        background-color: #28a745;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('teacher.view_exam', exam_id=exam.id) }}">{{ exam.title }}</a></li>
+                <li class="breadcrumb-item active">Analytics</li>
+            </ol>
+        </nav>
+        <h1>Exam Analytics</h1>
+        <p class="lead">{{ exam.title }}</p>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{{ url_for('teacher.view_exam_attempts', exam_id=exam.id) }}" class="btn btn-primary">
+            View All Attempts
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Overall Statistics -->
+    <div class="col-md-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Overall Performance</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <div class="display-1 mb-3">{{ analytics.avg_score }}%</div>
+                    <p class="mb-0">Average Score</p>
+                </div>
+                
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Total Attempts:</span>
+                        <span>{{ analytics.total_attempts }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Highest Score:</span>
+                        <span>{{ analytics.highest_score }}%</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Lowest Score:</span>
+                        <span>{{ analytics.lowest_score }}%</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Average Time:</span>
+                        {% set total_time = analytics.completion_times|map(attribute='minutes')|sum %}
+                        {% set avg_time = (total_time / analytics.completion_times|length) if analytics.completion_times|length > 0 else 0 %}
+                        <span>{{ "%.1f"|format(avg_time) }} minutes</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Question Analysis -->
+    <div class="col-md-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Question Analysis</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Questions sorted by difficulty (lowest correct percentage first)</p>
+                
+                {% for stats in sorted_questions %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span><strong>Q{{ loop.index }}:</strong> {{ stats.question.question_text|truncate(50) }}</span>
+                        <span class="badge {% if stats.percent_correct < 40 %}bg-danger{% elif stats.percent_correct < 70 %}bg-warning{% else %}bg-success{% endif %}">
+                            {{ stats.percent_correct }}% correct
+                        </span>
+                    </div>
+                    <div class="question-difficulty">
+                        <div class="difficulty-bar {% if stats.percent_correct < 40 %}difficult{% elif stats.percent_correct < 70 %}moderate{% else %}easy{% endif %}" 
+                             style="width: {{ stats.percent_correct }}%"></div>
+                    </div>
+                    <small class="text-muted">{{ stats.correct }} correct / {{ stats.incorrect }} incorrect</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Completion Time Analysis -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Completion Times</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Time Taken</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in analytics.completion_times|sort(attribute='minutes') %}
+                            <tr>
+                                <td>{{ item.student }}</td>
+                                <td>{{ item.minutes }} minutes</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // JavaScript charts could be added here for more visualization
+</script>
+{% endblock %}

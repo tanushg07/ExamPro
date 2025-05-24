@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}Search Results - {{ query }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col">
+        <h1>Search Results</h1>
+        <p class="lead">Results for "{{ query }}"</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Found {{ exams|length }} result(s)</h5>
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-sm btn-secondary">
+                    Back to Dashboard
+                </a>
+            </div>
+            <div class="card-body">
+                {% if user_type == 'teacher' %}
+                    {% include 'partials/teacher_search_results.html' %}
+                {% else %}
+                    {% include 'partials/student_search_results.html' %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

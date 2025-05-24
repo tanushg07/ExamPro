@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block title %}Import Questions - {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Import Questions</h1>
+        <a href="{{ url_for('teacher.edit_exam', exam_id=exam.id) }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Exam
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Upload Template</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-4">
+                            <label for="template_file" class="form-label">CSV Template File</label>
+                            {{ form.template_file(class="form-control") }}
+                            <div class="form-text">
+                                The CSV file should follow the required format. See the example on the right.
+                            </div>
+                            {% if form.template_file.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.template_file.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-check mb-4">
+                            {{ form.replace_existing(class="form-check-input") }}
+                            <label class="form-check-label" for="replace_existing">
+                                Replace existing questions
+                            </label>
+                            <div class="form-text">
+                                If checked, all existing questions will be deleted before importing.
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload"></i> Import Questions
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Template Format</h5>
+                </div>
+                <div class="card-body">
+                    <p>Your CSV file should have the following columns:</p>
+                    
+                    <ul class="list-group list-group-flush mb-3">
+                        <li class="list-group-item">
+                            <strong>question_text</strong> - The text of the question
+                        </li>
+                        <li class="list-group-item">
+                            <strong>question_type</strong> - One of: mcq, text, code
+                        </li>
+                        <li class="list-group-item">
+                            <strong>points</strong> - Point value (integer)
+                        </li>
+                        <li class="list-group-item">
+                            <strong>options</strong> - For MCQ only, pipe-separated options
+                        </li>
+                        <li class="list-group-item">
+                            <strong>correct_answer</strong> - For MCQ only, index of correct option (0-based)
+                        </li>
+                    </ul>
+                    
+                    <div class="alert alert-info">
+                        <strong>Example:</strong><br>
+                        <code>question_text,question_type,points,options,correct_answer<br>
+                        "What is 2+2?",mcq,5,"2|3|4|5",2<br>
+                        "Explain recursion.",text,10,,<br>
+                        "Write a function to calculate factorial.",code,15,,</code>
+                    </div>
+                    
+                    <div class="d-grid gap-2 mt-4">
+                        <a href="{{ url_for('teacher.download_template') }}" class="btn btn-outline-primary">
+                            <i class="fas fa-download"></i> Download Template
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

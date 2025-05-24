@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <style>
+        /* Basic styling for email */
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .header {
+            font-size: 24px;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .exam-details {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .details-item {
+            margin: 10px 0;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            New Exam Available 
+        </div>
+        
+        <p>Dear {{ user.username }},</p>
+
+        <p>A new exam "{{ exam.title }}" has been published and is now available for you to take.</p>
+
+        <div class="exam-details">
+            <div class="details-item">
+                <strong>Title:</strong> {{ exam.title }}
+            </div>
+            <div class="details-item">
+                <strong>Description:</strong> {{ exam.description }}
+            </div>
+            <div class="details-item">
+                <strong>Time Limit:</strong> {{ exam.time_limit_minutes }} minutes
+            </div>
+        </div>
+
+        <p>You can access the exam through your student dashboard.</p>
+
+        <div class="footer">
+            Best regards,<br>
+            Exam Platform Team
+        </div>
+    </div>
+</body>
+</html>

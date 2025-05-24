@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}Grade Exam - {{ attempt.exam.title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <h1>Grade Exam Submission</h1>
+        <p class="lead">{{ attempt.exam.title }}</p>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{{ url_for('teacher.view_exam', exam_id=attempt.exam_id) }}" class="btn btn-secondary">
+            Back to Exam
+        </a>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-md-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Submission Details</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Student:</span>
+                        <span class="fw-bold">{{ attempt.student.username }}</span>
+                    </li>                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Started:</span>
+                        <span>{{ attempt.started_at|datetime }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Completed:</span>
+                        <span>{{ attempt.completed_at|datetime }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Time taken:</span>
+                        <span>{{ attempt.started_at|timedelta(attempt.completed_at) }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>MCQ score:</span>
+                        {% set mcq_correct = answers|selectattr('question.question_type', 'equalto', 'mcq')|selectattr('is_correct')|list|length %}
+                        {% set mcq_total = answers|selectattr('question.question_type', 'equalto', 'mcq')|list|length %}
+                        <span>{{ mcq_correct }}/{{ mcq_total }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">        <form method="POST" action="{{ url_for('teacher.grade_attempt', attempt_id=attempt.id) }}">
+            {{ grading_form.csrf_token }}
+            {% for answer in answers %}
+                {% if answer.question.question_type in ['code', 'text'] %}
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Question {{ loop.index }}: {{ answer.question.question_type|upper }}</h5>
+                            <span class="badge bg-primary">{{ answer.question.points }} points</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="fw-bold">Question:</label>
+                                <p>{{ answer.question.question_text }}</p>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="fw-bold">Student's Answer:</label>
+                                <div class="border rounded p-3 bg-light">
+                                    {% if answer.question.question_type == 'code' %}
+                                        <pre class="mb-0"><code>{{ answer.text_answer }}</code></pre>
+                                    {% else %}
+                                        <p class="mb-0">{{ answer.text_answer }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <hr>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" 
+                                           name="is_correct_{{ answer.id }}" id="is_correct_{{ answer.id }}"
+                                           {% if answer.is_correct %}checked{% endif %}>
+                                    <label class="form-check-label" for="is_correct_{{ answer.id }}">
+                                        Mark as correct
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="points_{{ answer.id }}" class="form-label">Points awarded:</label>
+                                <input type="number" class="form-control" 
+                                       id="points_{{ answer.id }}" name="points_{{ answer.id }}"
+                                       min="0" max="{{ answer.question.points }}"
+                                       value="{{ answer.question.points if answer.is_correct else 0 }}">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="feedback_{{ answer.id }}" class="form-label">Feedback:</label>
+                                <textarea class="form-control" id="feedback_{{ answer.id }}"
+                                          name="feedback_{{ answer.id }}" rows="3">{{ answer.teacher_feedback or '' }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+            
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Multiple Choice Questions</h5>
+                </div>
+                <div class="card-body">
+                    <p>Multiple choice questions are automatically graded based on the correct options selected.</p>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Question</th>
+                                    <th>Student's Answer</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for answer in answers if answer.question.question_type == 'mcq' %}
+                                    <tr>
+                                        <td>{{ loop.index }}</td>
+                                        <td>{{ answer.question.question_text|truncate(50) }}</td>
+                                        <td>
+                                            {% if answer.selected_option %}
+                                                {{ answer.selected_option.option_text }}
+                                            {% else %}
+                                                No answer
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if answer.is_correct %}
+                                                <span class="badge bg-success">Correct</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">Incorrect</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-4">
+                <a href="{{ url_for('teacher.view_exam', exam_id=attempt.exam_id) }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Save Grading</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

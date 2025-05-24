@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>{{ group.name }} - Members</h2>
+        <a href="{{ url_for('group.view_group', group_id=group.id) }}" class="btn btn-secondary">
+            Back to Group
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">            <div class="card">                <div class="card-header">
+                    <h5 class="mb-0">Students ({{ all_students|length }})</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for member in all_students %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ member.username }}
+                            {% if is_teacher %}                                <form action="{{ url_for('group.remove_member', group_id=group.id, user_id=member.id) }}" 
+                                      method="POST" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm"
+                                            onclick="return confirm('Are you sure you want to remove this student from the group?')">
+                                        Remove
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="list-group-item">
+                            No students have joined this group yet.
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            {% if is_teacher %}
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Invite Students</h5>
+                        <p class="card-text">Share this code with your students:</p>
+                        <div class="alert alert-info text-center">
+                            <h3 class="mb-0">{{ group.code }}</h3>
+                        </div>
+                        <p class="card-text">
+                            <small class="text-muted">
+                                Students can join using this code in the "Join Group" section.
+                            </small>
+                        </p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

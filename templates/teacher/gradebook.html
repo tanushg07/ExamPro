@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+
+{% block title %}Gradebook{% endblock %}
+
+{% block styles %}
+<style>
+    .table-responsive {
+        overflow-x: auto;
+        max-width: 100%;
+    }
+    
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    
+    .score-cell {
+        font-weight: 500;
+    }
+    
+    .score-cell.high {
+        color: #28a745;
+    }
+    
+    .score-cell.medium {
+        color: #fd7e14;
+    }
+    
+    .score-cell.low {
+        color: #dc3545;
+    }
+    
+    .needs-grading {
+        background-color: rgba(253, 126, 20, 0.1);
+    }
+    
+    .not-attempted {
+        color: #6c757d;
+        font-style: italic;
+    }
+    
+    .exam-filters {
+        border-radius: 0.5rem;
+        background-color: #f8f9fa;
+    }
+    
+    .student-name {
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h2 mb-0">
+            <i class="bi bi-journal-check me-2"></i> Gradebook
+            {% if group %}
+            <span class="text-muted">- {{ group.name }}</span>
+            {% endif %}
+        </h1>
+        
+        <div>
+            <button class="btn btn-outline-primary me-2" id="print-button">
+                <i class="bi bi-printer me-1"></i> Print
+            </button>
+            <button class="btn btn-primary" id="export-csv-button">
+                <i class="bi bi-download me-1"></i> Export to CSV
+            </button>
+        </div>
+    </div>
+    
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light py-3">
+            <div class="row g-3">
+                <div class="col-md-4 col-sm-6">
+                    <label for="group-select" class="form-label">Class</label>
+                    <select id="group-select" class="form-select">
+                        <option value="">All Classes</option>
+                        {% for g in groups %}
+                        <option value="{{ g.id }}" {% if group and group.id == g.id %}selected{% endif %}>{{ g.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-4 col-sm-6">
+                    <label for="exam-select" class="form-label">Exam</label>
+                    <select id="exam-select" class="form-select">
+                        <option value="">All Exams</option>
+                        {% for e in exams %}
+                        <option value="{{ e.id }}" {% if exam and exam.id == e.id %}selected{% endif %}>{{ e.title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-4 col-sm-6">
+                    <label for="sort-select" class="form-label">Sort By</label>
+                    <select id="sort-select" class="form-select">
+                        <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Student Name</option>
+                        <option value="score" {% if sort_by == 'score' %}selected{% endif %}>Score (High to Low)</option>
+                        <option value="date" {% if sort_by == 'date' %}selected{% endif %}>Completion Date</option>
+                        <option value="needs_grading" {% if sort_by == 'needs_grading' %}selected{% endif %}>Needs Grading</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Student</th>
+                            {% for exam in exam_list %}
+                            <th>{{ exam.title }}</th>
+                            {% endfor %}
+                            <th>Average</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr>
+                            <td class="student-name">
+                                {{ student.username }}
+                                <div class="text-muted small">{{ student.email }}</div>
+                            </td>
+                            
+                            {% for exam in exam_list %}
+                                {% set attempt = attempts.get((student.id, exam.id)) %}
+                                {% if attempt %}
+                                    {% if attempt.is_graded %}
+                                        {% set score_value = (attempt.score|float / 100)|float %}
+                                        {% if score_value >= 0.8 %}
+                                            {% set score_class = "high" %}
+                                        {% elif score_value >= 0.6 %}
+                                            {% set score_class = "medium" %}
+                                        {% else %}
+                                            {% set score_class = "low" %}
+                                        {% endif %}
+                                        
+                                        <td>
+                                            <div class="score-cell {{ score_class }}">{{ attempt.score }}%</div>
+                                            <div class="small text-muted">
+                                                {{ attempt.completed_at.strftime('%m/%d/%Y') }}
+                                            </div>
+                                            <a href="{{ url_for('teacher.view_attempt', attempt_id=attempt.id) }}" class="btn btn-sm btn-link p-0">
+                                                View Details
+                                            </a>
+                                        </td>
+                                    {% else %}
+                                        <td class="needs-grading">
+                                            <div>
+                                                <span class="badge bg-warning text-dark">Needs Grading</span>
+                                            </div>
+                                            <a href="{{ url_for('teacher.grade_attempt', attempt_id=attempt.id) }}" class="btn btn-sm btn-link p-0">
+                                                Grade Now
+                                            </a>
+                                        </td>
+                                    {% endif %}
+                                {% else %}
+                                    <td class="not-attempted">
+                                        Not Attempted
+                                    </td>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <!-- Calculate average score -->
+                            {% set total_score = 0 %}
+                            {% set score_count = 0 %}
+                            
+                            {% for exam in exam_list %}
+                                {% set attempt = attempts.get((student.id, exam.id)) %}
+                                {% if attempt and attempt.is_graded %}
+                                    {% set total_score = total_score + attempt.score|float %}
+                                    {% set score_count = score_count + 1 %}
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if score_count > 0 %}
+                                {% set average = total_score / score_count %}
+                                
+                                {% if average >= 80 %}
+                                    {% set avg_class = "high" %}
+                                {% elif average >= 60 %}
+                                    {% set avg_class = "medium" %}
+                                {% else %}
+                                    {% set avg_class = "low" %}
+                                {% endif %}
+                                
+                                <td>
+                                    <div class="score-cell {{ avg_class }}">
+                                        {{ "%.1f"|format(average) }}%
+                                    </div>
+                                </td>
+                            {% else %}
+                                <td class="not-attempted">
+                                    N/A
+                                </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle filter changes
+    const groupSelect = document.getElementById('group-select');
+    const examSelect = document.getElementById('exam-select');
+    const sortSelect = document.getElementById('sort-select');
+    
+    function applyFilters() {
+        const groupId = groupSelect.value;
+        const examId = examSelect.value;
+        const sortBy = sortSelect.value;
+        
+        let url = "{{ url_for('teacher.gradebook') }}";
+        const params = [];
+        
+        if (groupId) params.push(`group_id=${groupId}`);
+        if (examId) params.push(`exam_id=${examId}`);
+        if (sortBy) params.push(`sort=${sortBy}`);
+        
+        if (params.length > 0) {
+            url += '?' + params.join('&');
+        }
+        
+        window.location.href = url;
+    }
+    
+    groupSelect.addEventListener('change', applyFilters);
+    examSelect.addEventListener('change', applyFilters);
+    sortSelect.addEventListener('change', applyFilters);
+    
+    // Handle CSV export
+    document.getElementById('export-csv-button').addEventListener('click', function() {
+        const groupId = groupSelect.value;
+        const examId = examSelect.value;
+        
+        let url = "{{ url_for('teacher.export_gradebook') }}";
+        const params = [];
+        
+        if (groupId) params.push(`group_id=${groupId}`);
+        if (examId) params.push(`exam_id=${examId}`);
+        
+        if (params.length > 0) {
+            url += '?' + params.join('&');
+        }
+        
+        window.location.href = url;
+    });
+    
+    // Handle printing
+    document.getElementById('print-button').addEventListener('click', function() {
+        window.print();
+    });
+});
+</script>
+{% endblock %}

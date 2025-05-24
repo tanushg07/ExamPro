@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+
+{% block title %}Exam Results - {{ attempt.exam.title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <h1>Exam Results</h1>
+        <p class="lead">{{ attempt.exam.title }}</p>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary">
+            Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Result Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <div class="display-1 mb-3">
+                        {{ score.percentage|round(1) }}%
+                    </div>
+                    <h4>{{ score.earned }} out of {{ score.total }} points</h4>
+                </div>
+                
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Started:</span>
+                        <span>{{ attempt.started_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Completed:</span>
+                        <span>{{ attempt.completed_at.strftime('%Y-%m-%d %H:%M') if attempt.completed_at else 'Not completed' }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Time taken:</span>
+                        <span>{{ (attempt.completed_at - attempt.started_at).total_seconds() // 60 if attempt.completed_at else 'N/A' }} {% if attempt.completed_at %}minutes{% endif %}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Total questions:</span>
+                        <span>{{ answers|length }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Correct answers:</span>
+                        <span>{{ answers|selectattr('is_correct')|list|length }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Detailed Results</h5>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="resultsAccordion">
+                    {% for answer in answers %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="heading{{ answer.id }}">
+                                <button class="accordion-button collapsed" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#collapse{{ answer.id }}">
+                                    <div class="d-flex justify-content-between align-items-center w-100 me-2">
+                                        <span>Question {{ loop.index }}: {{ answer.question.question_text|truncate(50) }}</span>
+                                        {% if answer.is_correct %}
+                                            <span class="badge bg-success">Correct</span>
+                                        {% elif answer.is_correct is sameas false %}
+                                            <span class="badge bg-danger">Incorrect</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">Pending Grading</span>
+                                        {% endif %}
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="collapse{{ answer.id }}" class="accordion-collapse collapse"
+                                 aria-labelledby="heading{{ answer.id }}" data-bs-parent="#resultsAccordion">
+                                <div class="accordion-body">
+                                    <div class="mb-3">
+                                        <h6>Question:</h6>
+                                        <p>{{ answer.question.question_text }}</p>
+                                    </div>
+                                    
+                                    {% if answer.question.question_type == 'mcq' %}
+                                        <div class="mb-3">
+                                            <h6>Your Answer:</h6>
+                                            <p>
+                                                {% if answer.selected_option %}
+                                                    {{ answer.selected_option.option_text }}
+                                                {% else %}
+                                                    No answer provided
+                                                {% endif %}
+                                            </p>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <h6>Correct Answer:</h6>
+                                            <p>
+                                                {% set correct_options = answer.question.options.filter_by(is_correct=true).all() %}
+                                                {% for option in correct_options %}
+                                                    {{ option.option_text }}{% if not loop.last %}, {% endif %}
+                                                {% endfor %}
+                                            </p>
+                                        </div>
+                                    {% else %}
+                                        <div class="mb-3">
+                                            <h6>Your Answer:</h6>
+                                            {% if answer.text_answer %}
+                                                {% if answer.question.question_type == 'code' %}
+                                                    <pre class="border p-2 bg-light rounded"><code>{{ answer.text_answer }}</code></pre>
+                                                {% else %}
+                                                    <p>{{ answer.text_answer }}</p>
+                                                {% endif %}
+                                            {% else %}
+                                                <p>No answer provided</p>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        {% if answer.teacher_feedback %}
+                                            <div class="mb-3">
+                                                <h6>Teacher Feedback:</h6>
+                                                <div class="border-start border-4 border-info ps-3">
+                                                    {{ answer.teacher_feedback }}
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-grid mt-4">
+    <a href="{{ url_for('student.review_exam', exam_id=attempt.exam_id) }}" class="btn btn-outline-primary">
+        {% set review = current_user.exam_reviews.filter_by(exam_id=attempt.exam_id).first() %}
+        {{ 'Update Your Review' if review else 'Review This Exam' }}
+    </a>
+</div>
+{% endblock %}

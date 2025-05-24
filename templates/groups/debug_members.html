@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>{{ group.name }} - Debug Members</h2>
+        <a href="{{ url_for('group.view_group', group_id=group.id) }}" class="btn btn-secondary">
+            Back to Group
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Students via relationship ({{ students_via_relationship|length }})</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for student in students_via_relationship %}
+                        <div class="list-group-item">
+                            {{ student.username }} (ID: {{ student.id }})
+                        </div>
+                    {% else %}
+                        <div class="list-group-item">
+                            No students found using relationship.
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Students via direct query ({{ students_via_query|length }})</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for student in students_via_query %}
+                        <div class="list-group-item">
+                            {{ student.username }} (ID: {{ student.id }})
+                        </div>
+                    {% else %}
+                        <div class="list-group-item">
+                            No students found using direct query.
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Raw GroupMembership entries ({{ memberships|length }})</h5>
+        </div>
+        <div class="list-group list-group-flush">
+            {% for membership in memberships %}
+                <div class="list-group-item">
+                    Membership ID: {{ membership.id }} | User ID: {{ membership.user_id }} | Group ID: {{ membership.group_id }} | Joined: {{ membership.joined_at }}
+                </div>
+            {% else %}
+                <div class="list-group-item">
+                    No membership entries found.
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0">Fix Group Memberships</h5>
+        </div>
+        <div class="card-body">
+            <p>If you're seeing inconsistencies, you can try to fix the memberships:</p>
+            <form action="{{ url_for('group.fix_memberships', group_id=group.id) }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-warning">Fix Memberships</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

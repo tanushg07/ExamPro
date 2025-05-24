@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+
+{% block title %}ExamPro - Modern Exam Management{% endblock %}
+
+{% block content %}
+<style>
+:root {
+    --primary-gradient: linear-gradient(135deg, #4f8cff 0%, #38e8ff 100%);
+    --glass-bg: rgba(255, 255, 255, 0.15);
+    --glass-border: rgba(255, 255, 255, 0.25);
+}
+
+.hero-modern {
+    background: var(--primary-gradient), 
+                url('https://images.unsplash.com/photo-1513258496099-48168024aec0?auto=format&fit=crop&w=1500&q=80&blend=001E3C&blend-mode=multiply') center/cover no-repeat;
+    color: white;
+    padding: 7rem 0 5rem;
+    margin-bottom: 4rem;
+    position: relative;
+    overflow: hidden;
+    border-radius: 0 0 2.5rem 2.5rem;
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.15);
+}
+.hero-modern .overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(40, 60, 120, 0.45);
+    z-index: 1;
+}
+.hero-modern .content {
+    position: relative;
+    z-index: 2;
+}
+.glass-card {
+    background: rgba(255,255,255,0.18);
+    border-radius: 1.5rem;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.10);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.25);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.glass-card:hover {
+    transform: translateY(-6px) scale(1.03);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+}
+.animated-feature {
+    animation: fadeInUp 1s cubic-bezier(.23,1.01,.32,1) both;
+}
+@keyframes fadeInUp {
+    0% { opacity: 0; transform: translateY(40px); }
+    100% { opacity: 1; transform: none; }
+}
+.feature-icon {
+    font-size: 2.7rem;
+    color: #38e8ff;
+    background: rgba(255,255,255,0.18);
+    border-radius: 50%;
+    padding: 18px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 12px rgba(56,232,255,0.08);
+}
+.hero-btns .btn {
+    margin: 0 0.5rem 0.5rem 0;
+    font-size: 1.15rem;
+    padding: 0.75rem 2.2rem;
+    border-radius: 2rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+.hero-modern h1, .hero-modern p {
+    text-shadow: 0 2px 12px rgba(0,0,0,0.12);
+}
+</style>
+<div class="hero-modern text-center mb-5">
+    <div class="overlay"></div>
+    <div class="content position-relative">
+        <h1 class="display-2 fw-bold mb-3">Empower Your Exams</h1>
+        <p class="lead mb-4 fs-4">Modern, secure, and effortless exam management for teachers and students.</p>
+        <div class="hero-btns mb-3">
+            {% if not current_user.is_authenticated %}
+                <a href="{{ url_for('auth.register') }}" class="btn btn-light btn-lg fw-semibold">Get Started</a>
+                <a href="{{ url_for('auth.login') }}" class="btn btn-outline-light btn-lg fw-semibold">Login</a>
+            {% else %}
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-light btn-lg fw-semibold">Go to Dashboard</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row justify-content-center mb-5 g-4">
+        <div class="col-md-5 animated-feature">
+            <div class="glass-card p-4 text-center h-100">
+                <div class="feature-icon mx-auto mb-2 bg-primary bg-opacity-10"><i class="bi bi-mortarboard"></i></div>
+                <h4 class="fw-bold mb-2">For Teachers</h4>
+                <p class="mb-3">Create, schedule, and grade exams with advanced proctoring and analytics tools.</p>
+                <a href="{{ url_for('auth.login', role='teacher') }}" class="btn btn-primary btn-lg rounded-pill px-4">Login as Teacher</a>
+            </div>
+        </div>
+        <div class="col-md-5 animated-feature" style="animation-delay:0.15s;">
+            <div class="glass-card p-4 text-center h-100">
+                <div class="feature-icon mx-auto mb-2 bg-success bg-opacity-10"><i class="bi bi-person-check"></i></div>
+                <h4 class="fw-bold mb-2">For Students</h4>
+                <p class="mb-3">Take exams, get instant results, and track your learning journey securely.</p>
+                <a href="{{ url_for('auth.login', role='student') }}" class="btn btn-success btn-lg rounded-pill px-4">Login as Student</a>
+            </div>
+        </div>
+    </div>
+    <div class="row text-center mb-5 g-4">
+        <div class="col-md-3 animated-feature" style="animation-delay:0.2s;">
+            <div class="feature-icon mb-2"><i class="bi bi-shield-lock"></i></div>
+            <h6 class="fw-bold">Secure & Proctored</h6>
+            <p class="text-muted small">Lockdown mode, webcam checks, and anti-cheating tools for exam integrity.</p>
+        </div>
+        <div class="col-md-3 animated-feature" style="animation-delay:0.3s;">
+            <div class="feature-icon mb-2"><i class="bi bi-bar-chart-line"></i></div>
+            <h6 class="fw-bold">Analytics & Reports</h6>
+            <p class="text-muted small">Monitor performance and progress with detailed analytics for all users.</p>
+        </div>
+        <div class="col-md-3 animated-feature" style="animation-delay:0.4s;">
+            <div class="feature-icon mb-2"><i class="bi bi-laptop"></i></div>
+            <h6 class="fw-bold">Effortless Experience</h6>
+            <p class="text-muted small">Intuitive, responsive interface for exam creation, participation, and grading.</p>
+        </div>
+        <div class="col-md-3 animated-feature" style="animation-delay:0.5s;">
+            <div class="feature-icon mb-2"><i class="bi bi-bell"></i></div>
+            <h6 class="fw-bold">Real-time Notifications</h6>
+            <p class="text-muted small">Stay updated with instant notifications for grades, new exams, and feedback.</p>
+        </div>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">        </div>
+    </div>
+</div>
+<!-- Bootstrap Icons CDN -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.visibility = 'visible';
+                entry.target.style.animationDelay = entry.target.dataset.delay || '0s';
+                entry.target.classList.add('animated-feature');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, {
+        threshold: 0.1,
+        rootMargin: '50px'
+    });
+
+    document.querySelectorAll('.animated-feature').forEach(el => {
+        el.style.visibility = 'hidden';
+        observer.observe(el);
+    });
+});
+</script>
+{% endblock %}

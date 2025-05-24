@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}Review Queue - Exam Platform{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Pending Reviews</h1>
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Submissions Awaiting Grading</h5>
+        </div>
+        <div class="card-body">
+            {% if pending_attempts %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Exam</th>
+                                <th>Student</th>
+                                <th>Submitted</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for attempt in pending_attempts %}
+                                <tr>
+                                    <td>{{ attempt.exam.title }}</td>
+                                    <td>{{ attempt.student.username }}</td>
+                                    <td data-order="{{ attempt.submitted_at.isoformat() }}">
+                                        {{ attempt.submitted_at.strftime('%b %d, %Y %H:%M') }}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">Needs Grading</span>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('teacher.grade_attempt', attempt_id=attempt.id) }}" 
+                                           class="btn btn-sm btn-primary">
+                                            <i class="fas fa-check-circle"></i> Grade Now
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-check-double fa-3x text-success mb-3"></i>
+                    <h4>All Caught Up!</h4>
+                    <p class="text-muted">There are no submissions waiting to be graded.</p>
+                </div>
+            {% endif %}
+        </div>
+        <div class="card-footer bg-white">
+            <small class="text-muted">Pro Tip: Grading submissions promptly helps students improve faster.</small>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    $(document).ready(function() {
+        // Add auto-refresh every 5 minutes
+        setTimeout(function() {
+            location.reload();
+        }, 5 * 60 * 1000);
+    });
+</script>
+{% endblock %}

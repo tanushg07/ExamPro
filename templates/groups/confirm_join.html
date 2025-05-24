@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirm Joining Group{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow">
+        <div class="card-header bg-info text-white">
+            <h4 class="mb-0">Confirm Joining Class</h4>
+        </div>
+        <div class="card-body">
+            <h5>You are about to join "{{ group.name }}"</h5>
+            
+            <div class="card my-3">
+                <div class="card-body">
+                    <h6 class="card-title">Class Details</h6>
+                    <p><strong>Teacher:</strong> {{ group.teacher.username }}</p>
+                    <p><strong>Subject:</strong> {{ group.subject or 'Not specified' }}</p>
+                    <p><strong>Description:</strong> {{ group.description or 'No description available' }}</p>
+                    <p><strong>Students:</strong> {{ group.students|length }} enrolled</p>
+                </div>
+            </div>
+            
+            <p class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                By joining this class, you will gain access to all published exams for this class.
+            </p>
+            
+            <div class="d-flex justify-content-end mt-4">
+                <a href="{{ url_for('group.join_group') }}" class="btn btn-secondary me-2">Cancel</a>
+                <form method="POST" action="{{ url_for('group.confirm_join', group_id=group.id) }}">
+                    {{ form.csrf_token }}
+                    <input type="hidden" name="confirm" value="true">
+                    <button type="submit" class="btn btn-info">Confirm Join</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

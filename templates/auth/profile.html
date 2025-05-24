@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}My Profile - Exam Management System{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+.profile-card {
+    border-radius: 1rem;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+}
+.profile-header {
+    background: linear-gradient(120deg, #007bff 0%, #00c6ff 100%);
+    color: #fff;
+    border-radius: 1rem 1rem 0 0;
+    padding: 2rem 1rem;
+    text-align: center;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card profile-card">
+                <div class="profile-header">
+                    <i class="fas fa-user-circle display-4 mb-3"></i>
+                    <h2>{{ current_user.username }}</h2>
+                    <p class="mb-0">{{ current_user.email }}</p>
+                    <p class="mb-0"><span class="badge bg-light text-dark">{{ current_user.user_type|capitalize }}</span></p>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4>Account Details</h4>
+                            <p><strong>Member since:</strong> {{ current_user.created_at.strftime('%B %d, %Y') }}</p>
+                            {% if current_user.is_teacher() %}
+                                <p><strong>Total Exams Created:</strong> {{ total_exams }}</p>
+                            {% elif current_user.is_student() %}
+                                <p><strong>Exams Completed:</strong> {{ completed_exams }}</p>
+                                <p><strong>Average Score:</strong> {{ "%.1f"|format(avg_score) if avg_score else 'N/A' }}%</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <h4>Update Password</h4>
+                            <form method="POST" action="{{ url_for('auth.update_password') }}">
+                                {{ password_form.hidden_tag() }}
+                                <div class="mb-3">
+                                    {{ password_form.current_password.label(class="form-label") }}
+                                    {{ password_form.current_password(class="form-control") }}
+                                    {% if password_form.current_password.errors %}
+                                        <div class="text-danger">
+                                            {% for error in password_form.current_password.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    {{ password_form.new_password.label(class="form-label") }}
+                                    {{ password_form.new_password(class="form-control") }}
+                                    {% if password_form.new_password.errors %}
+                                        <div class="text-danger">
+                                            {% for error in password_form.new_password.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    {{ password_form.confirm_password.label(class="form-label") }}
+                                    {{ password_form.confirm_password(class="form-control") }}
+                                    {% if password_form.confirm_password.errors %}
+                                        <div class="text-danger">
+                                            {% for error in password_form.confirm_password.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <button type="submit" class="btn btn-primary">Update Password</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

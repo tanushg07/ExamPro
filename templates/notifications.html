@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1>Notifications</h1>
+        <p class="lead">Stay updated on important events</p>
+    </div>
+    <div class="col-auto">        <form method="post" action="{{ url_for('main.mark_all_read') }}">
+            {{ mark_all_form.hidden_tag() }}
+            {{ mark_all_form.submit(class="btn btn-outline-secondary") }}
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                {% if notifications %}
+                <div class="list-group list-group-flush">
+                    {% for notification in notifications %}
+                    <div class="list-group-item p-3 {% if not notification.is_read %}list-group-item-light{% endif %}">
+                        <div class="d-flex w-100 justify-content-between">
+                            <div>
+                                {% if notification.type == 'exam_graded' %}
+                                    <i class="bi bi-check-circle-fill text-success me-2"></i>
+                                {% elif notification.type == 'new_exam' %}
+                                    <i class="bi bi-file-earmark-text me-2 text-primary"></i>
+                                {% elif notification.type == 'new_review' %}
+                                    <i class="bi bi-star-fill text-warning me-2"></i>
+                                {% elif notification.type == 'exam_started' %}
+                                    <i class="bi bi-play-circle-fill me-2 text-primary"></i>
+                                {% elif notification.type == 'exam_ending' %}
+                                    <i class="bi bi-alarm-fill me-2 text-warning"></i>
+                                {% else %}
+                                    <i class="bi bi-info-circle me-2 text-info"></i>
+                                {% endif %}
+                                <strong>{{ notification.message }}</strong>
+                            </div>
+                            <small class="text-muted">
+                                {{ notification.created_at|timesince }}
+                            </small>
+                        </div>
+                        
+                        {% if notification.related_id %}
+                        <div class="mt-2">
+                            {% if notification.type == 'exam_graded' %}
+                                <a href="{{ url_for('student.view_result', attempt_id=notification.related_id) }}" class="btn btn-sm btn-outline-primary">
+                                    View Results
+                                </a>
+                            {% elif notification.type in ['new_exam', 'exam_started', 'exam_ending'] %}
+                                <a href="{{ url_for('student.take_exam', exam_id=notification.related_id) }}" class="btn btn-sm btn-outline-primary">
+                                    View Exam
+                                </a>
+                            {% elif notification.type == 'new_review' %}
+                                <a href="{{ url_for('teacher.view_exam_reviews', exam_id=notification.related_id) }}" class="btn btn-sm btn-outline-primary">
+                                    View Reviews
+                                </a>
+                            {% endif %}
+                              <form class="d-inline" method="post" action="{{ url_for('main.mark_read', notification_id=notification.id) }}">
+                                {{ mark_read_form.hidden_tag() }}
+                                {% if not notification.is_read %}
+                                {{ mark_read_form.submit(class="btn btn-sm btn-outline-secondary") }}
+                                {% endif %}
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center p-5">
+                    <i class="bi bi-bell-slash fs-1 text-muted mb-3"></i>
+                    <h4>No Notifications</h4>
+                    <p class="text-muted">You're all caught up!</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

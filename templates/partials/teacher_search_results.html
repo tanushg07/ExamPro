@@ -1,0 +1,26 @@
+{% if exams %}
+    <div class="list-group">
+        {% for exam in exams %}
+            <div class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ exam.title }}</h5>
+                    <small>{{ exam.created_at.strftime('%Y-%m-%d') }}</small>
+                </div>
+                <p class="mb-1">{{ exam.description|truncate(100) }}</p>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <small>{{ exam.questions.count() }} questions | {{ exam.time_limit_minutes }} minutes</small>
+                    <div>
+                        <a href="{{ url_for('teacher.view_exam', exam_id=exam.id) }}" 
+                           class="btn btn-sm btn-primary">View</a>
+                        <a href="{{ url_for('teacher.edit_exam', exam_id=exam.id) }}" 
+                           class="btn btn-sm btn-secondary">Edit</a>
+                        <a href="{{ url_for('teacher.view_exam_attempts', exam_id=exam.id) }}" 
+                           class="btn btn-sm btn-info">Attempts</a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-info">No exams found matching "{{ query }}".</div>
+{% endif %}

@@ -1,0 +1,14 @@
+
+Dear {{ user.username }},
+
+A new exam "{{ exam.title }}" has been published and is now available for you to take.
+
+Exam Details:
+- Title: {{ exam.title }}
+- Description: {{ exam.description }}
+- Time Limit: {{ exam.time_limit_minutes }} minutes
+
+You can access the exam through your student dashboard.
+
+Best regards,
+Exam Platform Team

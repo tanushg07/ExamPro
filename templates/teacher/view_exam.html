@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+
+{% block title %}View Exam - {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <h1>{{ exam.title }}</h1>
+        <p class="lead">{{ exam.description }}</p>
+        <div class="d-flex mb-3">
+            <span class="badge bg-info me-2">Time Limit: {{ exam.time_limit_minutes }} minutes</span>
+            <span class="badge bg-{{ 'success' if exam.is_published else 'warning text-dark' }}">
+                {{ 'Published' if exam.is_published else 'Draft' }}
+            </span>
+            <span class="badge bg-secondary ms-2">{{ questions|length }} Questions</span>
+        </div>
+    </div>    <div class="col-md-4 text-end">
+        <a href="{{ url_for('teacher.edit_exam', exam_id=exam.id) }}" class="btn btn-primary">Edit Exam</a>
+        <a href="{{ url_for('teacher.view_exam_attempts', exam_id=exam.id) }}" class="btn btn-info">View Attempts</a>
+        <a href="{{ url_for('teacher.exam_analytics', exam_id=exam.id) }}" class="btn btn-secondary">Analytics</a>
+        <a href="{{ url_for('teacher.view_exam_reviews', exam_id=exam.id) }}" class="btn btn-outline-warning">Reviews</a>
+    </div>
+</div>
+
+<hr>
+
+<!-- Questions Preview -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Questions</h5>
+            </div>
+            <div class="card-body">
+                {% if questions %}
+                    <div class="accordion" id="questionsAccordion">
+                        {% for question in questions %}
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="heading{{ question.id }}">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                            data-bs-target="#collapse{{ question.id }}">
+                                        <div class="d-flex justify-content-between align-items-center w-100 me-2">
+                                            <span>Question {{ loop.index }}: {{ question.question_text|truncate(50) }}</span>
+                                            <span class="badge bg-primary">{{ question.points }} points</span>
+                                        </div>
+                                    </button>
+                                </h2>
+                                <div id="collapse{{ question.id }}" class="accordion-collapse collapse"
+                                     aria-labelledby="heading{{ question.id }}" data-bs-parent="#questionsAccordion">
+                                    <div class="accordion-body">
+                                        <p><strong>Type:</strong> {{ question.question_type|upper }}</p>
+                                        <p><strong>Question:</strong> {{ question.question_text }}</p>
+                                        
+                                        {% if question.question_type == 'mcq' %}
+                                            <div>
+                                                <strong>Options:</strong>
+                                                <ul>
+                                                    {% for option in question.options %}
+                                                        <li>
+                                                            {{ option.option_text }}
+                                                            {% if option.is_correct %}
+                                                                <span class="text-success"> (Correct)</span>
+                                                            {% endif %}
+                                                        </li>
+                                                    {% endfor %}
+                                                </ul>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <p>No questions have been added to this exam.</p>
+                        <a href="{{ url_for('teacher.edit_exam', exam_id=exam.id) }}" class="btn btn-primary mt-2">
+                            Add Questions
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Student Attempts -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Student Attempts</h5>
+            </div>
+            <div class="card-body">
+                {% if attempts %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Started At</th>
+                                    <th>Completed At</th>
+                                    <th>Status</th>
+                                    <th>Score</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for attempt in attempts %}
+                                    <tr>
+                                        <td>{{ attempt.student.username }}</td>
+                                        <td>{{ attempt.started_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                        <td>
+                                            {% if attempt.completed_at %}
+                                                {{ attempt.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if attempt.is_completed %}
+                                                <span class="badge bg-success">Completed</span>
+                                            {% else %}
+                                                <span class="badge bg-warning text-dark">In Progress</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if attempt.is_completed %}
+                                                {% set score = attempt.calculate_score() %}
+                                                {{ score.earned }}/{{ score.total }} ({{ score.percentage|round(1) }}%)
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if attempt.is_completed %}
+                                                <a href="{{ url_for('teacher.grade_attempt', attempt_id=attempt.id) }}" 
+                                                   class="btn btn-sm btn-primary">Review & Grade</a>
+                                            {% else %}
+                                                <button class="btn btn-sm btn-secondary" disabled>Pending</button>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <p class="mb-0">No students have attempted this exam yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}View Exam Attempts - {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('teacher.view_exam', exam_id=exam.id) }}">{{ exam.title }}</a></li>
+                    <li class="breadcrumb-item active">Attempts</li>
+                </ol>
+            </nav>
+            <h1>Exam Attempts: {{ exam.title }}</h1>
+            <p class="text-muted">{{ attempts|length }} total attempts</p>
+        </div>
+    </div>
+
+    {% if attempts %}
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Started</th>
+                    <th>Completed</th>
+                    <th>Status</th>
+                    <th>Score</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for attempt in attempts %}
+                <tr>
+                    <td>{{ students.get(attempt.student_id, 'Unknown') }}</td>
+                    <td>{{ attempt.started_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        {% if attempt.completed_at %}
+                            {{ attempt.completed_at.strftime('%Y-%m-%d %H:%M') }}
+                        {% else %}
+                            <span class="text-warning">In progress</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if attempt.is_completed %}
+                            <span class="badge bg-success">Completed</span>
+                            {% if not attempt.is_graded and attempt.needs_grading %}
+                                <span class="badge bg-warning">Needs Grading</span>
+                            {% elif attempt.is_graded %}
+                                <span class="badge bg-primary">Graded</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge bg-warning">In Progress</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if attempt.is_completed %}
+                            {% set score = attempt.calculate_score() %}
+                            {{ "%.1f"|format(score.percentage) }}% ({{ score.earned }}/{{ score.total }})
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if attempt.is_completed %}
+                            <a href="{{ url_for('teacher.grade_attempt', attempt_id=attempt.id) }}" class="btn btn-sm btn-primary">
+                                {% if attempt.is_graded %}Review{% else %}Grade{% endif %}
+                            </a>
+                        {% else %}
+                            <button class="btn btn-sm btn-secondary" disabled>Not Completed</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        No attempts have been made on this exam yet.
+    </div>
+    {% endif %}
+
+    <div class="mt-4">
+        <a href="{{ url_for('teacher.view_exam', exam_id=exam.id) }}" class="btn btn-secondary">Back to Exam</a>
+    </div>
+</div>
+{% endblock %}

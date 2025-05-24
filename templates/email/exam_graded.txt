@@ -1,0 +1,12 @@
+Dear {{ user.username }},
+
+Your exam "{{ exam_title }}" has been graded.
+
+Score Details:
+- Total Points: {{ score.earned }}/{{ score.total }}
+- Percentage: {{ score.percentage|round(1) }}%
+
+You can view your detailed results and feedback through the student dashboard.
+
+Best regards,
+Exam Platform Team

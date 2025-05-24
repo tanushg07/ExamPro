@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Join Group</h2>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.csrf_token }}
+                        <div class="mb-3">
+                            {{ form.code.label(class="form-label") }}
+                            {{ form.code(class="form-control", placeholder="Enter 6-digit group code") }}
+                            {% for error in form.code.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        {{ form.submit(class="btn btn-primary") }}
+                        <a href="{{ url_for('group.list_groups') }}" class="btn btn-secondary">Cancel</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="alert alert-info">
+                <h5>How to Join a Group</h5>
+                <ol>
+                    <li>Get the group code from your teacher</li>
+                    <li>Enter the 6-digit code above</li>
+                    <li>Click "Join Group"</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .header {
+            font-size: 24px;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .review-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            New Exam Review Received
+        </div>
+        
+        <p>Dear {{ user.username }},</p>
+
+        <p>A student ({{ student_name }}) has submitted a review for your exam "{{ exam_title }}".</p>
+
+        <div class="review-info">
+            <p>You can view this review and other feedback through your teacher dashboard.</p>
+        </div>
+
+        <div class="footer">
+            Best regards,<br>
+            Exam Platform Team
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirm Publishing Exam{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">Confirm Publishing</h4>
+        </div>
+        <div class="card-body">
+            <h5>Are you sure you want to publish "{{ exam.title }}"?</h5>
+            
+            <p class="alert alert-info">
+                <i class="fas fa-info-circle"></i> 
+                Once published, students will be able to view and take this exam.
+            </p>
+            
+            <p><strong>Important Notes:</strong></p>
+            <ul>
+                <li>Students in the class "{{ exam.group.name }}" will be notified</li>
+                <li>This action cannot be easily undone without disruption to students</li>
+                <li>Make sure all questions and settings are properly configured</li>
+            </ul>
+            
+            <div class="d-flex justify-content-end mt-4">
+                <a href="{{ url_for('teacher.view_exam', exam_id=exam.id) }}" class="btn btn-secondary me-2">Cancel</a>
+                <form method="POST" action="{{ url_for('teacher.publish_exam', exam_id=exam.id) }}">
+                    {{ form.csrf_token }}
+                    <input type="hidden" name="confirm" value="true">
+                    <button type="submit" class="btn btn-primary">Confirm Publish</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

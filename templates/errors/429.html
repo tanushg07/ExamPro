@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Too Many Requests{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4>Too Many Login Attempts</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        Too many failed login attempts have been detected from your IP address.
+                    </div>
+                    
+                    <p>For security reasons, login has been temporarily disabled for your IP address. 
+                       Please try again in <strong>{{ minutes }} minute{% if minutes != 1 %}s{% endif %} 
+                       {% if seconds > 0 %}and {{ seconds }} second{% if seconds != 1 %}s{% endif %}{% endif %}</strong>.</p>
+                       
+                    <p>If you believe this is an error or need immediate assistance, please contact the administrator.</p>
+                    
+                    <hr>
+                    
+                    <div class="text-center">
+                        <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-house-door me-1"></i> Return to Homepage
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
