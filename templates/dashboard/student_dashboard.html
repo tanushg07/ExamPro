@@ -65,7 +65,7 @@
                     </div>
                     <div class="col-md-4 text-center mb-3">
                         <div class="display-4 text-primary">
-                            {% if completed_exams|length > 0 %}
+                            {% if average_score is not none %}
                                 {{ "%.1f"|format(average_score) }}%
                             {% else %}
                                 -
@@ -75,8 +75,8 @@
                     </div>
                     <div class="col-md-4 text-center">
                         <div class="display-4 text-success">
-                            {% if available_exams|length > 0 %}
-                                {{ ((completed_exams|length / available_exams|length) * 100)|int }}%
+                            {% if total_available_count > 0 %}
+                                {{ ((completed_exams|length / total_available_count) * 100)|int }}%
                             {% else %}
                                 -
                             {% endif %}

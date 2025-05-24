@@ -162,20 +162,45 @@ def dashboard():
                 Exam.group_id.in_(group_ids)
             ).all()
             
+            # Get all attempts for the student
             attempts = ExamAttempt.query.filter_by(student_id=current_user.id).all()
+            # Get completed attempts and their corresponding exams
             completed_attempts = [attempt for attempt in attempts if attempt.is_completed]
-            completed_exams = [attempt.exam for attempt in completed_attempts]
+            completed_exam_ids = {attempt.exam_id for attempt in completed_attempts}
+            completed_exams = Exam.query.filter(Exam.id.in_(completed_exam_ids)).all()
             
-            average_score = 0
-            if completed_attempts:
-                total_score = sum(attempt.score or 0 for attempt in completed_attempts)
-                average_score = total_score / len(completed_attempts)
+            # Store the total number of available exams before filtering
+            total_available_count = len(available_exams)
+
+            # Filter out completed exams from available exams
+            available_exams = [exam for exam in available_exams if exam.id not in completed_exam_ids]
+            
+            # Calculate and update scores for all completed attempts
+            for attempt in completed_attempts:
+                score_data = attempt.calculate_score()
+                attempt.score = score_data['percentage']
+                db.session.add(attempt)
+            
+            try:
+                db.session.commit()
+            except SQLAlchemyError as e:
+                logger.error(f"Error updating scores: {str(e)}")
+                db.session.rollback()
+            
+            # Now calculate average from all completed attempts
+            scores = [attempt.score for attempt in completed_attempts if attempt.score is not None]
+            if scores:
+                average_score = sum(float(score) for score in scores) / len(scores)
+            else:
+                average_score = None
             
             return render_template(
                 'dashboard/student_dashboard.html',
                 available_exams=available_exams,
                 completed_exams=completed_exams,
-                average_score=average_score
+                total_available_count=total_available_count,
+                average_score=average_score,
+                graded_attempts=completed_attempts
             )
     except SQLAlchemyError as e:
         flash('Error loading dashboard data', 'danger')
