@@ -64,7 +64,7 @@
                         <div class="rating mb-3">
                             {% for subfield in form.rating %}
                                 {{ subfield }}
-                                <label for="{{ subfield.id }}">★</label>
+                                <label for="{{ subfield.id }}" title="{{ subfield.label.text }}">★</label>
                             {% endfor %}
                         </div>
                         

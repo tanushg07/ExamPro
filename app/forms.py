@@ -306,7 +306,8 @@ class GradeAnswerForm(FlaskForm):
 
 class ExamReviewForm(FlaskForm):
     rating = RadioField('Rating', 
-                       choices=[('5', '★★★★★'), ('4', '★★★★'), ('3', '★★★'), ('2', '★★'), ('1', '★')],
+                       choices=[(5, '★★★★★'), (4, '★★★★'), (3, '★★★'), (2, '★★'), (1, '★')],
+                       coerce=int,
                        validators=[DataRequired(message='Please select a rating')])
     feedback = TextAreaField('Your Feedback', 
                            validators=[Length(max=500, message='Feedback must be less than 500 characters')])

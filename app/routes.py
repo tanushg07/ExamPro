@@ -1657,7 +1657,7 @@ def review_exam(exam_id):
             if not review.id:
                 db.session.add(review)
             db.session.commit()
-            notify_new_review(review.id)
+            notify_new_review(review.id, exam_id)  # Pass both review.id and exam_id
             flash('Your review has been submitted successfully!', 'success')
             return redirect(url_for('student.view_result', attempt_id=attempt.id))
         except Exception as e:
