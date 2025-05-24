@@ -8,6 +8,7 @@ from flask_login import login_required, current_user
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import func, desc
 from sqlalchemy.sql import case
+from sqlalchemy.orm import joinedload
 from functools import wraps
 import logging
 
@@ -1329,37 +1330,44 @@ def mark_read(notification_id):
 def view_result(attempt_id):
     """View exam attempt results with optimized data loading"""
     try:
-        # Load all related data in a single query using joinedload
-        attempt = ExamAttempt.query.options(
-            joinedload(ExamAttempt.exam),
-            joinedload(ExamAttempt.answers).joinedload(Answer.question),
-            joinedload(ExamAttempt.answers).joinedload(Answer.selected_option)
-        ).get_or_404(attempt_id)
+        # First get just the attempt to check permissions
+        attempt = ExamAttempt.query.get_or_404(attempt_id)
         
         # Verify ownership
         if attempt.student_id != current_user.id:
             logger.warning(f"Unauthorized access attempt to result {attempt_id} by user {current_user.id}")
             abort(403)
-        
-        # Since we're using joined load, these won't trigger additional queries
-        answers = attempt.answers
-        
-        # Use a transaction to ensure consistent score calculation
-        with db.session.begin():
-            score = attempt.calculate_score()
             
-            # Log the activity
-            ActivityLog.log_activity(
-                user_id=current_user.id,
-                action="view_result",
-                category="exam",
-                details={
-                    'exam_id': attempt.exam_id,
-                    'attempt_id': attempt.id,
-                    'score': float(attempt.score) if attempt.score else None,
-                    'viewed_at': datetime.utcnow().isoformat()
-                }
-            )
+        # Now load all related data in an optimized way
+        attempt = ExamAttempt.query.options(
+            joinedload(ExamAttempt.exam),
+            joinedload(ExamAttempt.answers).joinedload(Answer.question),
+            joinedload(ExamAttempt.answers).joinedload(Answer.selected_option)
+        ).get(attempt_id)
+        
+        # Get all the answers including their relationships
+        answers = sorted(attempt.answers, key=lambda x: x.question.order)
+        
+        # Calculate the score
+        score = attempt.calculate_score()
+        
+        # Log the activity
+        ActivityLog.log_activity(
+            user_id=current_user.id,
+            action="view_result",
+            category="exam",
+            details={
+                'exam_id': attempt.exam_id,
+                'attempt_id': attempt.id,
+                'score': float(attempt.score) if attempt.score else None,
+                'viewed_at': datetime.utcnow().isoformat()
+            },
+            ip_address=request.remote_addr,
+            user_agent=str(request.user_agent)
+        )
+        
+        # Commit any pending changes
+        db.session.commit()
         
         return render_template(
             'student/view_result.html',
@@ -1372,6 +1380,11 @@ def view_result(attempt_id):
         db.session.rollback()
         logger.error(f"Database error in view_result: {str(e)}")
         flash("Error loading results. Please try again.", "danger")
+        return redirect(url_for('main.dashboard'))
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Unexpected error in view_result: {str(e)}")
+        flash("An unexpected error occurred. Please try again.", "danger")
         return redirect(url_for('main.dashboard'))
 
 
