@@ -17,7 +17,7 @@
                     <p><strong>Teacher:</strong> {{ group.teacher.username }}</p>
                     <p><strong>Subject:</strong> {{ group.subject or 'Not specified' }}</p>
                     <p><strong>Description:</strong> {{ group.description or 'No description available' }}</p>
-                    <p><strong>Students:</strong> {{ group.students|length }} enrolled</p>
+                    <p><strong>Students:</strong> {{ group.students.count() }} enrolled</p>
                 </div>
             </div>
             
