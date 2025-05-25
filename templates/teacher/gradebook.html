@@ -140,7 +140,11 @@
                                         <td>
                                             <div class="score-cell {{ score_class }}">{{ attempt.score }}%</div>
                                             <div class="small text-muted">
-                                                {{ attempt.completed_at.strftime('%m/%d/%Y') }}
+                                                {% if attempt.completed_at %}
+                                                    {{ attempt.completed_at.strftime('%m/%d/%Y') }}
+                                                {% else %}
+                                                    No completion date
+                                                {% endif %}
                                             </div>
                                             <a href="{{ url_for('teacher.view_attempt', attempt_id=attempt.id) }}" class="btn btn-sm btn-link p-0">
                                                 View Details
@@ -166,12 +170,16 @@
                             <!-- Calculate average score -->
                             {% set total_score = 0 %}
                             {% set score_count = 0 %}
+                            {% set completed_count = 0 %}
                             
                             {% for exam in exam_list %}
                                 {% set attempt = attempts.get((student.id, exam.id)) %}
                                 {% if attempt and attempt.is_graded %}
                                     {% set total_score = total_score + attempt.score|float %}
                                     {% set score_count = score_count + 1 %}
+                                {% endif %}
+                                {% if attempt and attempt.is_completed %}
+                                    {% set completed_count = completed_count + 1 %}
                                 {% endif %}
                             {% endfor %}
                             
@@ -193,7 +201,7 @@
                                 </td>
                             {% else %}
                                 <td class="not-attempted">
-                                    N/A
+                                    {% if completed_count > 0 %}Completed{% else %}N/A{% endif %}
                                 </td>
                             {% endif %}
                         </tr>

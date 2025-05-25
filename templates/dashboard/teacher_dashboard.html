@@ -118,9 +118,9 @@
     <div class="col-md-3 mb-3">
         <div class="card bg-primary text-white stats-card h-100">
             <div class="card-body">
-                <h5 class="card-title">Total Exams</h5>
-                <h2 class="display-4">{{ exams|length }}</h2>
-                <p class="card-text">Created by you</p>
+                <h5 class="card-title">Total Students</h5>
+                <h2 class="display-4">{{ total_students }}</h2>
+                <p class="card-text">Enrolled in your classes</p>
             </div>
         </div>
     </div>
@@ -145,9 +145,9 @@
     <div class="col-md-3 mb-3">
         <div class="card bg-warning text-dark stats-card h-100">
             <div class="card-body">
-                <h5 class="card-title">Students</h5>
-                <h2 class="display-4">{{ total_students|default(0) }}</h2>
-                <p class="card-text">Enrolled in your exams</p>
+                <h5 class="card-title">Total Exams</h5>
+                <h2 class="display-4">{{ exams|length }}</h2>
+                <p class="card-text">Created by you</p>
             </div>
         </div>
     </div>

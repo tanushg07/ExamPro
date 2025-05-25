@@ -16,9 +16,10 @@
                             <h5 class="card-title">{{ group.name }}</h5>
                             <p class="card-text">{{ group.description or 'No description' }}</p>
                             <p class="card-text"><small class="text-muted">Code: {{ group.code }}</small></p>
+                            {% set student_count = group.students.count() %}
                             <p class="card-text">
                                 <small class="text-muted">
-                                    {{ group.members|length }} student{{ 's' if group.members|length != 1 }}
+                                    {{ student_count }} student{{ 's' if student_count != 1 }}
                                 </small>
                             </p>
                         </div>

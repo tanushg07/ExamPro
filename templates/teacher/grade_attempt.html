@@ -92,7 +92,7 @@
                                 <label for="points_{{ answer.id }}" class="form-label">Points awarded:</label>
                                 <input type="number" class="form-control" 
                                        id="points_{{ answer.id }}" name="points_{{ answer.id }}"
-                                       min="0" max="{{ answer.question.points }}"
+                                       min="0" max="{{ answer.question.points }}" step="0.1"
                                        value="{{ answer.question.points if answer.is_correct else 0 }}">
                             </div>
                             
@@ -156,4 +156,72 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle checkbox changes for correct/incorrect marking
+    document.querySelectorAll('.form-check-input[id^="is_correct_"]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const answerId = this.id.split('_')[2];
+            const pointsInput = document.querySelector(`#points_${answerId}`);
+            const maxPoints = parseFloat(pointsInput.getAttribute('max'));
+            
+            // If marked correct, set to full points; if incorrect, set to 0
+            if (this.checked) {
+                pointsInput.value = maxPoints;
+            } else {
+                pointsInput.value = 0;
+            }
+        });
+    });
+
+    // Handle points input changes to update checkbox
+    document.querySelectorAll('input[id^="points_"]').forEach(input => {
+        input.addEventListener('input', function() {
+            const answerId = this.id.split('_')[1];
+            const checkbox = document.querySelector(`#is_correct_${answerId}`);
+            const maxPoints = parseFloat(this.getAttribute('max'));
+            const currentPoints = parseFloat(this.value) || 0;
+            
+            // Update checkbox based on partial marking
+            if (currentPoints === maxPoints) {
+                checkbox.checked = true;
+                checkbox.indeterminate = false;
+            } else if (currentPoints > 0) {
+                checkbox.checked = true;
+                checkbox.indeterminate = true;
+            } else {
+                checkbox.checked = false;
+                checkbox.indeterminate = false;
+            }
+        });
+
+        // Add buttons for quick partial marking
+        const container = input.parentElement;
+        const buttonsDiv = document.createElement('div');
+        buttonsDiv.className = 'btn-group mt-2';
+        buttonsDiv.setAttribute('role', 'group');
+        
+        const maxPoints = parseFloat(input.getAttribute('max'));
+        const percentages = [0, 25, 50, 75, 100];
+        
+        percentages.forEach(percent => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'btn btn-outline-secondary btn-sm';
+            button.textContent = `${percent}%`;
+            button.onclick = function() {
+                const points = (percent / 100) * maxPoints;
+                input.value = points.toFixed(1);
+                input.dispatchEvent(new Event('input'));
+            };
+            buttonsDiv.appendChild(button);
+        });
+        
+        container.appendChild(buttonsDiv);
+    });
+});
+</script>
 {% endblock %}

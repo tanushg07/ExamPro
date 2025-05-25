@@ -29,7 +29,8 @@
                             <a href="{{ url_for('group.view_group', group_id=group.id) }}" class="list-group-item list-group-item-action">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h5 class="mb-1">{{ group.name }}</h5>
-                                    <small>{{ group.students.count() }} students</small>
+                                    {% set student_count = group.students.count() %}
+                                    <small>{{ student_count }} student{{ 's' if student_count != 1 }}</small>
                                 </div>
                                 {% if group.subject %}
                                     <p class="mb-1">{{ group.subject }}</p>
@@ -157,7 +158,17 @@
                                     {% set attempt = current_user.exam_attempts.filter_by(exam_id=exam.id, is_completed=True).first() %}
                                     <tr>
                                         <td>{{ exam.title }}</td>
-                                        <td>{{ attempt.completed_at.strftime('%Y-%m-%d %H:%M') if attempt.completed_at else 'N/A' }}</td>
+                                        <td>
+                                            {% if attempt and attempt.completed_at %}
+                                                {{ attempt.completed_at.strftime('%Y-%m-%d %H:%M') }}
+                                            {% elif attempt and attempt.submitted_at %}
+                                                {{ attempt.submitted_at.strftime('%Y-%m-%d %H:%M') }}
+                                            {% elif attempt and attempt.is_completed %}
+                                                Completed
+                                            {% else %}
+                                                N/A
+                                            {% endif %}
+                                        </td>
                                         <td>
                                             <a href="{{ url_for('student.view_result', attempt_id=attempt.id) }}" 
                                                class="btn btn-sm btn-info">
