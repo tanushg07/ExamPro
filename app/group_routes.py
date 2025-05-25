@@ -21,6 +21,23 @@ def list_groups():
         groups = current_user.joined_groups.all()
         return render_template('groups/student_groups.html', groups=groups)
 
+@group_bp.route('/list')
+@login_required
+def list_groups_v2():
+    """List all groups the user is part of or teaches"""
+    if current_user.is_teacher():
+        # Get teacher's groups with student counts
+        groups = Group.query.join(User, Group.teacher_id == User.id)\
+            .filter(Group.teacher_id == current_user.id)\
+            .order_by(Group.created_at.desc())\
+            .all()
+            
+        return render_template('groups/teacher_groups.html', groups=groups)
+    else:
+        # Get student's groups
+        groups = current_user.joined_groups.order_by(Group.name).all()
+        return render_template('groups/student_groups.html', groups=groups)
+
 @group_bp.route('/create', methods=['GET', 'POST'])
 @login_required
 @teacher_required
