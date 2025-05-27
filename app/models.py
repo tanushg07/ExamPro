@@ -278,8 +278,14 @@ class ExamAttempt(db.Model):
         time_limit = self.started_at + timedelta(minutes=self.exam.time_limit_minutes)
         grace_period = timedelta(minutes=2)  # 2 minute grace period
         
+        # Allow submission even if expired, but track it
         if submission_time > (time_limit + grace_period):
-            return False, "Time limit exceeded"
+            print(f"Submission time exceeded by {submission_time - (time_limit + grace_period)}")
+            # Set completed_at and is_completed when submitting after time limit
+            self.completed_at = submission_time
+            self.is_completed = True
+            # Return True to allow submission but log it
+            return True, "Time limit exceeded but allowing submission"
             
         # Check for suspicious time differences
         if client_time:

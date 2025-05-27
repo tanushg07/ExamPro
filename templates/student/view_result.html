@@ -3,6 +3,12 @@
 {% block title %}Exam Results - {{ attempt.exam.title }}{% endblock %}
 
 {% block content %}
+<!-- Success notification -->
+<div id="successNotification" class="alert alert-success d-none">
+    <i class="fas fa-check-circle me-2"></i>
+    <span id="successMessage"></span>
+</div>
+
 <div class="row">
     <div class="col-md-8">
         <h1>Exam Results</h1>
@@ -24,9 +30,19 @@
             <div class="card-body">
                 <div class="text-center mb-4">
                     <div class="display-1 mb-3">
-                        {{ score.percentage|round(1) }}%
+                        {% if attempt.score is not none %}
+                            {{ attempt.score|round(1) }}%
+                        {% else %}
+                            {{ score.percentage|round(1) }}%
+                        {% endif %}
                     </div>
-                    <h4>{{ score.earned }} out of {{ score.total }} points</h4>
+                    <h4>
+                        {% if attempt.earned_points is not none and attempt.total_points is not none %}
+                            {{ attempt.earned_points }} out of {{ attempt.total_points }} points
+                        {% else %}
+                            {{ score.earned }} out of {{ score.total }} points
+                        {% endif %}
+                    </h4>
                 </div>
                 
                 <ul class="list-group list-group-flush">
@@ -36,7 +52,7 @@
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
                         <span>Completed:</span>
-                        <span>{{ attempt.completed_at.strftime('%Y-%m-%d %H:%M') if attempt.completed_at else 'Not completed' }}</span>
+                            <span>COMPLETED</span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
                         <span>Time taken:</span>
@@ -147,4 +163,32 @@
         {{ 'Update Your Review' if review else 'Review This Exam' }}
     </a>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Check for submission message in sessionStorage
+    const submissionMessage = sessionStorage.getItem('examSubmitMessage');
+    if (submissionMessage) {
+        // Show the notification
+        const notification = document.getElementById('successNotification');
+        const messageSpan = document.getElementById('successMessage');
+        messageSpan.textContent = submissionMessage;
+        notification.classList.remove('d-none');
+        notification.classList.add('show');
+        
+        // Clear the message from storage
+        sessionStorage.removeItem('examSubmitMessage');
+        
+        // Auto-hide after 5 seconds with fade
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.classList.add('d-none');
+            }, 150); // Wait for fade animation
+        }, 5000);
+    }
+});
+</script>
 {% endblock %}
