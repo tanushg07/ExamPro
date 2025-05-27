@@ -49,10 +49,13 @@ def validate_submission_time(attempt, submission_time):
     if not attempt or not attempt.started_at or not attempt.exam:
         return False
         
-    if not attempt.exam.duration:  # If no duration set, submission is always valid
+    if not hasattr(attempt.exam, 'time_limit_minutes') or not attempt.exam.time_limit_minutes:
+
+  # If no duration set, submission is always valid
         return True
         
-    time_limit = attempt.started_at + timedelta(minutes=attempt.exam.duration)
+    time_limit = attempt.started_at + timedelta(minutes=attempt.exam.time_limit_minutes)
+
     grace_period = timedelta(minutes=1)  # 1 minute grace period for network delays
     
     return submission_time <= (time_limit + grace_period)
@@ -1694,3 +1697,59 @@ def review_exam(exam_id):
         form=form,
         is_update=review is not None
     )
+
+@student_bp.route('/submit', methods=['POST'])
+@login_required
+@student_required
+def submit_exam_direct():
+    try:
+        from app.forms import TakeExamForm
+        form = TakeExamForm()
+
+        if not form.validate_on_submit():
+            return jsonify({
+                'success': False,
+                'message': 'Invalid form submission. Please refresh and try again.',
+                'error': 'csrf_error'
+            }), 400
+
+        exam_id = request.form.get('exam_id')
+        if not exam_id:
+            return jsonify({'success': False, 'message': 'Missing exam ID'}), 400
+
+        attempt = ExamAttempt.query.filter_by(student_id=current_user.id, exam_id=exam_id, is_completed=False).first()
+        if not attempt:
+            return jsonify({'success': False, 'message': 'No active attempt found'}), 404
+
+        from datetime import datetime
+        from app.routes import save_answers, validate_submission_time
+
+        save_answers(request.form, attempt, is_final_submission=True)
+
+        submission_time = datetime.utcnow()
+        if not validate_submission_time(attempt, submission_time):
+            return jsonify({
+                'success': False,
+                'message': 'Time limit exceeded. Exam will still be submitted.',
+                'warning': True
+            })
+
+        attempt.is_completed = True
+        attempt.submitted_at = submission_time
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Exam submitted successfully',
+            'redirect_url': url_for('student.view_result', attempt_id=attempt.id)
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()  # Logs full error to terminal
+        return jsonify({
+            'success': False,
+            'message': 'Server error during submission',
+            'error': str(e)
+        }), 500

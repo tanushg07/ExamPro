@@ -429,7 +429,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const startTime = new Date('{{ attempt.started_at.isoformat() }}Z');
-    const durationMinutes = {{ exam.duration or exam.time_limit_minutes or 60 }};
+const durationMinutes = Number("{{ exam.duration or exam.time_limit_minutes or 60 }}") || 60;
     const examForm = document.getElementById('examForm');
     const lastSavedSpan = document.getElementById('lastSaved');
     const leaveExamBtn = document.getElementById('leave-exam-btn');
@@ -625,157 +625,63 @@ document.addEventListener('DOMContentLoaded', function() {
         retryButton.style.display = canRetry ? 'block' : 'none';
         errorModal.show();
     }    // Handle exam submission with retry mechanism
-    async function submitExam(isAutoSubmit = false) {
-        if (!lastSavedSuccessfully && !isAutoSubmit) {
-            const shouldProceed = confirm('Some answers may not be saved. Do you want to proceed with submission anyway?');
-            if (!shouldProceed) {
-                isSubmitting = false;
-                return;
-            }
-        }
+    
+    // Submit exam function
+async function submitExam(isAutoSubmit = false) {
+    const examForm = document.getElementById('examForm');
+    const submitBtn = document.getElementById('submit-exam-btn');
+    const originalBtnHtml = submitBtn.innerHTML;
 
-        // Update submit button UI
-        const submitBtn = document.getElementById('submit-exam-btn');
-        const originalBtnHtml = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Submitting...';
-        submitBtn.disabled = true;
+    const examIdInput = document.querySelector('input[name="exam_id"]');
+    let examId = examIdInput ? examIdInput.value : null;
 
-        try {
-            // Try to save answers one more time before submitting
-            if (!isAutoSubmit) {
-                try {
-                    await saveAnswers();
-                } catch (saveError) {
-                    console.error('Final save before submission failed:', saveError);
-                }
-            }
-
-            const formData = new FormData(examForm);
-            formData.append('submit_exam', '1');
-            formData.append('client_time', new Date().toISOString());
-
-            // Make sure we have question IDs for all answers
-            const questionCards = document.querySelectorAll('.question-card');
-            questionCards.forEach(card => {
-                // Make sure each question has a question_id field
-                const inputs = card.querySelectorAll('input, textarea');
-                let hasQuestionId = false;
-                let questionId = null;
-                
-                // Check if inputs include a question ID field
-                inputs.forEach(input => {
-                    if (input.name === 'question_id') {
-                        hasQuestionId = true;
-                        questionId = input.value;
-                    }
-                    if (input.name && input.name.startsWith('answer_')) {
-                        const id = input.name.split('_')[1];
-                        if (id) questionId = id;
-                    }
-                });
-                
-                // If no question ID found, add one
-                if (!hasQuestionId && questionId) {
-                    const hiddenInput = document.createElement('input');
-                    hiddenInput.type = 'hidden';
-                    hiddenInput.name = 'question_id';
-                    hiddenInput.value = questionId;
-                    card.querySelector('.card-body').appendChild(hiddenInput);
-                }
-            });            console.log('Submitting form data keys:', [...formData.keys()]);
-
-            // Create a dedicated submission URL that avoids the 'undefined' path issue
-            const currentPath = window.location.pathname;
-            let examId;
-            
-            // Extract exam ID from various possible paths
-            if (currentPath.includes('/exams/')) {
-                // Try to get exam ID from URL path
-                const pathSegments = currentPath.split('/').filter(part => part);
-                // Find the segment index after 'exams'
-                const examsIndex = pathSegments.findIndex(segment => segment === 'exams');
-                if (examsIndex !== -1 && pathSegments.length > examsIndex + 1) {
-                    examId = pathSegments[examsIndex + 1];
-                }
-            }
-            
-            // Fallback: try to get from the form action URL
-            if (!examId && examForm.action) {
-                const actionUrl = new URL(examForm.action, window.location.origin);
-                const actionPath = actionUrl.pathname;
-                if (actionPath.includes('/exams/')) {
-                    const actionSegments = actionPath.split('/').filter(part => part);
-                    const examsIndex = actionSegments.findIndex(segment => segment === 'exams');
-                    if (examsIndex !== -1 && actionSegments.length > examsIndex + 1) {
-                        examId = actionSegments[examsIndex + 1];
-                    }
-                }
-            }
-            
-            // Final fallback: try to extract from hidden inputs
-            if (!examId) {
-                // Try to find a hidden input with exam_id in the form
-                const examIdInput = document.querySelector('input[name="exam_id"]');
-                if (examIdInput) {
-                    examId = examIdInput.value;
-                }
-                
-                // Try to get it from any answer field name
-                if (!examId) {
-                    const answerInput = document.querySelector('input[name^="answer_"]');
-                    if (answerInput) {
-                        const inputNameParts = answerInput.name.split('_');
-                        if (inputNameParts.length > 1) {
-                            // We know the question ID, not the exam ID, so we can log and use it for debugging
-                            console.log('Found question ID from input:', inputNameParts[1]);
-                        }
-                    }
-                }
-            }
-            
-            if (!examId) {
-                console.error('Could not determine exam ID for submission URL');
-                throw new Error('Could not determine exam ID for submission URL');
-            }
-            
-            const submitUrl = `/student/exams/${examId}/submit`;
-            console.log('Submitting to URL:', submitUrl);
-            
-            const response = await fetch(submitUrl, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: formData
-            });
-
-            // Check for non-JSON responses
-            if (!response.ok && !response.headers.get('content-type')?.includes('application/json')) {
-                throw new Error(`Server error: ${response.status} ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            
-            if (data.success) {
-                if (isAutoSubmit) {
-                    alert('Time is up! Your exam has been submitted.');
-                }
-                window.location.href = data.redirect_url;
-            } else if (data.redirect_url) {
-                window.location.href = data.redirect_url;
-            } else {
-                throw new Error(data.message || 'Submission failed');
-            }
-        } catch (error) {
-            console.error('Submission error:', error);
-            showError('Failed to submit exam. Your answers are saved. Would you like to try again?', true);
-            isSubmitting = false;
-            
-            // Reset submit button
-            submitBtn.innerHTML = originalBtnHtml;
-            submitBtn.disabled = false;
-        }
+    if (!examId) {
+        console.error('Exam ID not found in form');
+        alert('Unable to find exam ID. Submission cancelled.');
+        return;
     }
+
+    const submitUrl = '/student/submit';  // new dedicated submission route
+
+    const formData = new FormData(examForm);
+    formData.append('submit_exam', '1');
+    formData.append('client_time', new Date().toISOString());
+
+    // UI update
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Submitting...';
+    submitBtn.disabled = true;
+
+    try {
+        const response = await fetch(submitUrl, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+            },
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success || data.status === 'success') {
+            if (isAutoSubmit) {
+                alert('Time is up! Your exam has been submitted.');
+            }
+
+              sessionStorage.setItem('examSubmitMessage', 'Your test was submitted successfully.');
+            window.location.href = data.redirect_url || '{{ url_for("main.dashboard") }}';
+        } else {
+            throw new Error(data.message || 'Exam submission failed');
+        }
+
+    } catch (error) {
+        console.error('Submission error:', error);
+        showError('Failed to submit exam. Your answers are saved. Would you like to try again?', true);
+        isSubmitting = false;
+        submitBtn.innerHTML = originalBtnHtml;
+        submitBtn.disabled = false;
+    }
+}
 
     // Handle leave exam functionality
     async function handleLeave() {
