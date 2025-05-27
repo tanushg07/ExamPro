@@ -45,17 +45,23 @@
                     </h4>
                 </div>
                 
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item d-flex justify-content-between">
+                <ul class="list-group list-group-flush">                    <li class="list-group-item d-flex justify-content-between">
                         <span>Started:</span>
                         <span>{{ attempt.started_at.strftime('%Y-%m-%d %H:%M') }}</span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
                         <span>Completed:</span>
-                            <span>COMPLETED</span>
+                        <span>{{ attempt.completed_at.strftime('%Y-%m-%d %H:%M') if attempt.completed_at else 'COMPLETED' }}</span>
                     </li>                    <li class="list-group-item d-flex justify-content-between">
                         <span>Time taken:</span>
-                        <span class="time-taken">{% if attempt.completed_at and attempt.started_at %}{{ ((attempt.completed_at - attempt.started_at).total_seconds() / 60)|round|int }} minutes{% else %}N/A{% endif %}</span>
+                        <span class="time-taken">
+                            {% set seconds = (attempt.submitted_at - attempt.started_at).total_seconds()|round|int %}
+                            {% if seconds < 60 %}
+                                {{ seconds }} seconds
+                            {% else %}
+                                {{ (seconds / 60)|round|int }} minutes
+                            {% endif %}
+                        </span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
                         <span>Total questions:</span>
