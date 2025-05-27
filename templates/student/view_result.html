@@ -53,10 +53,9 @@
                     <li class="list-group-item d-flex justify-content-between">
                         <span>Completed:</span>
                             <span>COMPLETED</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between">
+                    </li>                    <li class="list-group-item d-flex justify-content-between">
                         <span>Time taken:</span>
-                        <span>{{ (attempt.completed_at - attempt.started_at).total_seconds() // 60 if attempt.completed_at else 'N/A' }} {% if attempt.completed_at %}minutes{% endif %}</span>
+                        <span class="time-taken">{% if attempt.completed_at and attempt.started_at %}{{ ((attempt.completed_at - attempt.started_at).total_seconds() / 60)|round|int }} minutes{% else %}N/A{% endif %}</span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
                         <span>Total questions:</span>
@@ -168,7 +167,18 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Check for submission message in sessionStorage
+    // Check if this is the first load after submission
+    const isPostSubmission = sessionStorage.getItem('examSubmitMessage');
+    const hasRefreshed = sessionStorage.getItem('hasRefreshed');
+    
+    if (isPostSubmission && !hasRefreshed) {
+        // Set the flag and refresh once
+        sessionStorage.setItem('hasRefreshed', 'true');
+        window.location.reload();
+        return;
+    }
+
+    // After refresh or on normal page load, show the notification
     const submissionMessage = sessionStorage.getItem('examSubmitMessage');
     if (submissionMessage) {
         // Show the notification
@@ -178,8 +188,9 @@ document.addEventListener('DOMContentLoaded', function() {
         notification.classList.remove('d-none');
         notification.classList.add('show');
         
-        // Clear the message from storage
+        // Clear all related storage
         sessionStorage.removeItem('examSubmitMessage');
+        sessionStorage.removeItem('hasRefreshed');
         
         // Auto-hide after 5 seconds with fade
         setTimeout(() => {
