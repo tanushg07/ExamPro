@@ -485,16 +485,25 @@ def grade_attempt(attempt_id):
             try:
                 # First process all submitted grades
                 updated_answers = set()
-                for answer in answers:                
-                        if answer.question.question_type != 'mcq':
-                            form_prefix = f'points_{answer.id}'
-                            points = request.form.get(form_prefix)
+                for answer in answers:                       
+                    if answer.question.question_type != 'mcq':
+                        form_prefix = f'points_{answer.id}'
+                        points = request.form.get(form_prefix)                       
                         if points is not None:
-                            points = float(points)
-                            # A question is considered correct if any points were awarded
-                            answer.is_correct = points > 0
-                            answer.teacher_feedback = request.form.get(f'feedback_{answer.id}', '')
-                            updated_answers.add(answer.id)
+                            try:                          
+                                points = float(points)
+                                # Ensure points are within valid range
+                                if 0 <= points <= answer.question.points:
+                                    # For non-MCQ questions, store the exact points awarded
+                                    answer.points_awarded = points
+                                    # An answer is considered correct if it received any points
+                                    # This allows partial credit to be properly reflected
+                                    answer.is_correct = (points > 0)
+                                    answer.teacher_feedback = request.form.get(f'feedback_{answer.id}', '')
+                                    updated_answers.add(answer.id)
+                            except ValueError:
+                                flash(f'Invalid points value for question {answer.question.question_text[:30]}...', 'danger')
+                                return redirect(url_for('teacher.grade_attempt', attempt_id=attempt_id))
                 
                 # Calculate final score
                 score_data = attempt.calculate_score()

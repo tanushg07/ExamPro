@@ -203,15 +203,22 @@ class ExamAttempt(db.Model):
                 
                 # Get all answers in one query to avoid n+1 problem
                 answers_with_points = db.session.query(
-                    Answer.is_correct,
-                    Question.points
+                    Answer.points_awarded,
+                    Question.points,
+                    Question.question_type
                 ).join(Question).filter(
                     Answer.attempt_id == self.id
                 ).all()
                 
-                for is_correct, points in answers_with_points:
-                    if is_correct:
-                        earned_points += points
+                for points_awarded, max_points, question_type in answers_with_points:
+                    if question_type == 'mcq':
+                        # For MCQ questions, use all-or-nothing scoring
+                        if points_awarded == max_points:
+                            earned_points += max_points
+                    else:
+                        # For non-MCQ questions, use actual points awarded
+                        if points_awarded is not None:
+                            earned_points += points_awarded
                 
                 # Calculate percentage with proper decimal handling
                 percentage = round((earned_points / total_points * 100), 2) if total_points > 0 else 0
@@ -346,6 +353,7 @@ class Answer(db.Model):
     text_answer = db.Column(db.Text, nullable=True)
     code_answer = db.Column(db.Text, nullable=True)  # New field for code answers
     is_correct = db.Column(db.Boolean, nullable=True)  # For MCQs/text/code: null=needs grading, true=correct, false=incorrect
+    points_awarded = db.Column(db.DECIMAL(5,2), nullable=True)  # Store exact points awarded for partial credit
     teacher_feedback = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     

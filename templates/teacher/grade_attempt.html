@@ -115,7 +115,7 @@
                                 <input type="number" class="form-control" 
                                        id="points_{{ answer.id }}" name="points_{{ answer.id }}"
                                        min="0" max="{{ answer.question.points }}" step="0.1"
-                                       value="{{ answer.question.points if answer.is_correct else 0 }}">
+                                       value="{{ answer.points_awarded if answer.points_awarded is not none else (answer.question.points if answer.is_correct else 0) }}">
                             </div>
                             
                             <div class="mb-3">
