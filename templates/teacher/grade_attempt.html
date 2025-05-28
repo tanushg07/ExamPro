@@ -32,11 +32,33 @@
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
                         <span>Completed:</span>
-                        <span>{{ attempt.completed_at|datetime }}</span>
+                        <span>
+                            {% if attempt.is_completed %}
+                                {{ attempt.completed_at|datetime if attempt.completed_at else 'Completed' }}
+                            {% else %}
+                                Not completed
+                            {% endif %}
+                        </span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
                         <span>Time taken:</span>
-                        <span>{{ attempt.started_at|timedelta(attempt.completed_at) }}</span>
+                        <span>
+                            {% if attempt.is_completed and attempt.started_at %}
+                                {% if attempt.completed_at %}
+                                    {% set seconds = (attempt.completed_at - attempt.started_at).total_seconds() %}
+                                {% else %}
+                                    {% set completion_time = attempt.submitted_at or attempt.completed_at %}
+                                    {% set seconds = (completion_time - attempt.started_at).total_seconds() %}
+                                {% endif %}
+                                {% if seconds < 60 %}
+                                    {{ seconds|round|int }} seconds
+                                {% else %}
+                                    {{ (seconds / 60)|round(1) }} minutes
+                                {% endif %}
+                            {% else %}
+                                Not available
+                            {% endif %}
+                        </span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
                         <span>MCQ score:</span>

@@ -1721,21 +1721,34 @@ def submit_exam_direct():
         if not attempt:
             return jsonify({'success': False, 'message': 'No active attempt found'}), 404
 
-        from datetime import datetime
-        from app.routes import save_answers, validate_submission_time
-
         save_answers(request.form, attempt, is_final_submission=True)
-
+        
+        # Set completion time
         submission_time = datetime.utcnow()
-        if not validate_submission_time(attempt, submission_time):
-            return jsonify({
-                'success': False,
-                'message': 'Time limit exceeded. Exam will still be submitted.',
-                'warning': True
-            })
-
+        attempt.completed_at = submission_time
         attempt.is_completed = True
         attempt.submitted_at = submission_time
+        
+        if not validate_submission_time(attempt, submission_time):
+            flash('Time limit exceeded. Your exam will be submitted as is.', 'warning')
+        
+        try:
+            # Calculate score for automatic grading
+            score_data = attempt.calculate_score()
+            attempt.score = score_data['percentage']
+            attempt.earned_points = score_data.get('earned', 0)
+            attempt.total_points = score_data.get('total', 0)
+            
+            # Auto-grade if all MCQ
+            has_non_mcq = db.session.query(Question).filter(
+                Question.exam_id == exam_id,
+                Question.question_type != 'mcq'
+            ).first() is None
+            attempt.is_graded = has_non_mcq
+            
+        except Exception as e:
+            print(f"Error calculating score: {str(e)}")
+            # Continue with submission even if scoring fails
 
         db.session.commit()
 

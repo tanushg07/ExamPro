@@ -80,36 +80,20 @@ def handle_exam_submission(exam, attempt, request_form):
             'redirect_url': url_for('student.view_result', attempt_id=attempt.id)
         }), 400
     
-    # Validate submission time - allow it even if expired to prevent data loss
-    is_valid_time = validate_submission_time(attempt, submission_time)
-    if not is_valid_time:
-        print("Submission time validation failed, but proceeding with submission")
-    
     try:
         # Save final answers first
         save_answers(request_form, attempt, is_final_submission=True)
-          # Mark attempt as completed and set critical timestamps
+        
+        # Mark attempt as completed and set all timestamps
         attempt.is_completed = True
         attempt.submitted_at = submission_time
-        attempt.completed_at = submission_time  # Must be set for correct status display
+        attempt.completed_at = submission_time  # Set completion time
         
         # Calculate and store score immediately
         try:
             score_data = attempt.calculate_score()
             attempt.score = score_data['percentage']
             attempt.earned_points = score_data.get('earned', 0)
-              # Ensure changes are saved to DB before redirect
-            db.session.commit()
-            
-            # Return success with updated info for immediate display
-            return jsonify({
-                'success': True,
-                'message': 'Exam submitted successfully',
-                'redirect_url': url_for('student.view_result', attempt_id=attempt.id),
-                'score': attempt.score,
-                'completed_at': attempt.completed_at.strftime('%Y-%m-%d %H:%M:%S') if attempt.completed_at else None,
-                'is_completed': attempt.is_completed
-            })
             attempt.total_points = score_data.get('total', 0)
             
             # Mark as fully graded if all MCQ (automatic grading)
@@ -119,43 +103,26 @@ def handle_exam_submission(exam, attempt, request_form):
             ).first() is None
             attempt.is_graded = has_non_mcq
             
-            # Force a database flush to ensure score is persisted
             db.session.flush()
-            
         except Exception as e:
             print(f"Error calculating score during submission: {str(e)}")
             # Continue with submission even if score calculation fails
-            
-        # Log appropriate submission status
-        if not is_valid_time:
-            ActivityLog.log_activity(
-                user_id=current_user.id,
-                action="time_expired_submission",
-                category="attempt",
-                details={
-                    'exam_id': exam.id,
-                    'attempt_id': attempt.id,
-                    'submission_time': submission_time.isoformat()
-                },
-                ip_address=request.remote_addr
-            )
-        else:
-            ActivityLog.log_activity(
-                user_id=current_user.id,
-                action="exam_submitted",
-                category="attempt",
-                details={
-                    'exam_id': exam.id,
-                    'attempt_id': attempt.id,
-                    'submission_time': submission_time.isoformat()
-                },
-                ip_address=request.remote_addr
-            )
+        
+        # Log successful submission
+        ActivityLog.log_activity(
+            user_id=current_user.id,
+            action="exam_submitted",
+            category="attempt",
+            details={
+                'exam_id': exam.id,
+                'attempt_id': attempt.id,
+                'submission_time': submission_time.isoformat(),
+                'completed_at': submission_time.isoformat()
+            },
+            ip_address=request.remote_addr
+        )
         
         db.session.commit()
-        
-        # Set flash message for non-AJAX fallback
-        flash('Your exam was submitted successfully.', 'success')
         
         return jsonify({
             'success': True,
@@ -163,53 +130,15 @@ def handle_exam_submission(exam, attempt, request_form):
             'redirect_url': url_for('student.view_result', attempt_id=attempt.id)
         })
         
-    except SQLAlchemyError as e:
-        db.session.rollback()
-        error_msg = str(e)
-        print(f"Database error during exam submission: {error_msg}")
-        
-        ActivityLog.log_activity(
-            user_id=current_user.id,
-            action="submission_error",
-            category="attempt",
-            details={
-                'exam_id': exam.id,
-                'attempt_id': attempt.id,
-                'error': error_msg,
-                'type': 'database_error'
-            },
-            ip_address=request.remote_addr
-        )
-        
-        return jsonify({
-            'success': False,
-            'message': "Database error submitting exam. Your answers are saved and you can try submitting again.",
-            'error': 'database_error',
-            'details': error_msg
-        }), 500
-        
     except Exception as e:
         db.session.rollback()
         error_msg = str(e)
-        print(f"Unexpected error during exam submission: {error_msg}")
-        
-        ActivityLog.log_activity(
-            user_id=current_user.id,
-            action="submission_error",
-            category="attempt",
-            details={
-                'exam_id': exam.id,
-                'attempt_id': attempt.id,
-                'error': error_msg,
-                'type': 'unexpected_error'
-            },
-            ip_address=request.remote_addr
-        )
+        print(f"Error during exam submission: {error_msg}")
         
         return jsonify({
             'success': False,
             'message': "Error submitting exam. Your answers are saved and you can try submitting again.",
-            'error': 'unexpected_error',
+            'error': 'submission_error',
             'details': error_msg
         }), 500
 
