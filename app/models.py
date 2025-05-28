@@ -345,7 +345,7 @@ class Answer(db.Model):
     selected_option_id = db.Column(db.Integer, db.ForeignKey('question_options.id'), nullable=True)
     text_answer = db.Column(db.Text, nullable=True)
     code_answer = db.Column(db.Text, nullable=True)  # New field for code answers
-    is_correct = db.Column(db.Boolean, nullable=True)  # For MCQs, auto-graded. For code/text, needs teacher grading
+    is_correct = db.Column(db.Boolean, nullable=True)  # For MCQs/text/code: null=needs grading, true=correct, false=incorrect
     teacher_feedback = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     

@@ -470,17 +470,78 @@ def grade_attempt(attempt_id):
     if exam.creator_id != current_user.id:
         abort(403)
 
-    answers = Answer.query.filter_by(attempt_id=attempt_id).all()
-
-    # Create a main form for CSRF protection
-    grading_form = GradeAnswerForm(prefix='main')
-
+    answers = Answer.query.filter_by(attempt_id=attempt_id).all()    # Create a main form for CSRF protection without prefix
+    grading_form = GradeAnswerForm()
     grading_forms = {}
     for answer in answers:
         if answer.question.question_type != 'mcq':
             form = GradeAnswerForm(prefix=f'answer_{answer.id}')
             form.points_awarded.default = answer.question.points if answer.is_correct else 0
             grading_forms[answer.id] = form
+    
+    if request.method == 'POST':
+        # Only validate CSRF token, not the entire form
+        if grading_form.csrf_token.validate(grading_form):
+            try:
+                # First process all submitted grades
+                updated_answers = set()
+                for answer in answers:                
+                        if answer.question.question_type != 'mcq':
+                            form_prefix = f'points_{answer.id}'
+                            points = request.form.get(form_prefix)
+                        if points is not None:
+                            points = float(points)
+                            # A question is considered correct if any points were awarded
+                            answer.is_correct = points > 0
+                            answer.teacher_feedback = request.form.get(f'feedback_{answer.id}', '')
+                            updated_answers.add(answer.id)
+                
+                # Calculate final score
+                score_data = attempt.calculate_score()
+                attempt.score = score_data['percentage']
+                attempt.earned_points = score_data['earned']
+                attempt.total_points = score_data['total']
+
+                # Separate MCQ and non-MCQ answers
+                non_mcq_answers = [a for a in answers if a.question.question_type != 'mcq']
+                mcq_answers = [a for a in answers if a.question.question_type == 'mcq']
+                
+                # Check if all non-MCQ answers have points awarded
+                all_non_mcq_graded = all(
+                    answer.id in updated_answers or (  # Either just graded or previously graded
+                        answer.points_awarded is not None and 
+                        answer.is_correct is not None
+                    )
+                    for answer in non_mcq_answers
+                )
+                
+                # MCQ answers are automatically graded, just verify they're graded
+                all_mcq_graded = all(
+                    answer.is_correct is not None
+                    for answer in mcq_answers
+                )
+                
+                # Update grading status and commit transaction
+                attempt.is_graded = all_non_mcq_graded and all_mcq_graded
+                if attempt.is_graded:
+                    attempt.graded_at = datetime.utcnow()
+                
+                db.session.commit()
+                
+                if attempt.is_graded:
+                    # Only send notification if fully graded
+                    notify_exam_graded(attempt.id)
+                    flash('The exam has been fully graded and the student has been notified.', 'success')
+                else:
+                    flash('Grading progress has been saved. Some answers still need grading.', 'info')
+                
+                return redirect(url_for('main.dashboard'))
+
+            except Exception as e:
+                db.session.rollback()
+                flash('Error saving grades: ' + str(e), 'danger')
+        else:
+            flash('Invalid form submission. Please try again.', 'danger')
 
     return render_template(
         'teacher/grade_attempt.html',
@@ -488,7 +549,7 @@ def grade_attempt(attempt_id):
         exam=exam,
         answers=answers,
         grading_forms=grading_forms,
-        grading_form=grading_form  # Add the main form for CSRF protection
+        grading_form=grading_form
     )
 
 

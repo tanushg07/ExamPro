@@ -170,10 +170,17 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            <a href="{{ url_for('student.view_result', attempt_id=attempt.id) }}" 
-                                               class="btn btn-sm btn-info">
-                                                View Results
-                                            </a>
+                                            {% if attempt.is_graded %}
+                                                <a href="{{ url_for('student.view_result', attempt_id=attempt.id) }}" 
+                                                   class="btn btn-sm btn-success">
+                                                    View Results
+                                                </a>
+                                            {% else %}
+                                                <a href="{{ url_for('student.view_result', attempt_id=attempt.id) }}" 
+                                                   class="btn btn-sm btn-warning">
+                                                    Pending Review
+                                                </a>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                 {% endfor %}
