@@ -429,7 +429,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const startTime = new Date('{{ attempt.started_at.isoformat() }}Z');
-    const durationMinutes = {{ exam.duration or exam.time_limit_minutes or 60 }};
+    const durationMinutes = Number("{{ exam.duration or exam.time_limit_minutes or 60 }}") || 60;
     const examForm = document.getElementById('examForm');
     const lastSavedSpan = document.getElementById('lastSaved');
     const leaveExamBtn = document.getElementById('leave-exam-btn');
