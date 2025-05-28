@@ -252,6 +252,42 @@
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         max-width: 400px;
     }
+
+    /* Secure textarea styling */
+    .secure-input-wrapper {
+        position: relative;
+        background: #fff;
+    }
+
+    .secure-textarea {
+        background: #fff !important;
+        resize: vertical;
+        z-index: 1;
+        position: relative;
+    }
+
+    .secure-textarea:focus {
+        outline: none;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .secure-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 2;
+        pointer-events: none;
+        background: transparent;
+    }    /* Text input styling */
+    .answer-input {
+        width: 100%;
+        min-height: 100px;
+        padding: 10px;
+        font-size: 14px;
+        line-height: 1.5;
+    }
 </style>
 {% endblock %}
 
@@ -329,29 +365,54 @@
                             </label>
                         </div>
                         {% endfor %}
-                    </div>
-                    {% elif question.question_type == 'text' %}
+                    </div>                    {% elif question.question_type == 'text' %}
                     <div class="text-answer-container">
                         {% set form = answer_forms[question.id] %}
                         {{ form.hidden_tag() }}
                         <input type="hidden" name="question_id" value="{{ question.id }}">
-                        <textarea class="form-control answer-input"
-                                  rows="5"
-                                  name="answer_{{ question.id }}"
-                                  placeholder="Enter your answer here..."
-                                  >{{ form.answer_text.data or '' }}</textarea>
+                        <div class="secure-input-wrapper position-relative">
+                            <div class="secure-overlay"></div>
+                            <textarea 
+                                  class="form-control answer-input secure-textarea" 
+                                  rows="6" 
+                                  name="answer_text_{{question.id}}"
+                                  id="answer_text_{{question.id}}"
+                                  onpaste="return false"
+                                  oncut="return false"
+                                  oncopy="return false"
+                                  ondrop="return false"
+                                  ondrag="return false"
+                                  oncontextmenu="return false"
+                                  spellcheck="false"
+                                  autocomplete="off"
+                                  autocorrect="off"
+                                  autocapitalize="off"
+                                  data-gramm="false"
+                                  required></textarea>
+                        </div>
                     </div>
                     {% elif question.question_type == 'code' %}
                     <div class="code-answer-container">
                         {% set form = answer_forms[question.id] %}
                         {{ form.hidden_tag() }}
                         <input type="hidden" name="question_id" value="{{ question.id }}">
-                        <textarea class="form-control code-editor answer-input"
+                        <div class="secure-input-wrapper position-relative">
+                            <div class="secure-overlay"></div>
+                            <textarea 
+                                  class="form-control code-editor answer-input secure-textarea"
                                   rows="10"
                                   style="font-family: monospace;"
                                   name="answer_{{ question.id }}"
+                                  data-question-type="code"
+                                  oncut="return false"
+                                  oncopy="return false"
+                                  onpaste="return false"
+                                  ondrag="return false"
+                                  ondrop="return false"
+                                  oncontextmenu="return false"
                                   placeholder="Write your code here..."
                                   >{{ form.code_answer.data or '' }}</textarea>
+                        </div>
                     </div>
                     {% endif %}
                 </div>
@@ -443,7 +504,151 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let autoSaveTimeout;
     let isSubmitting = false;
-    let lastSavedSuccessfully = true;
+    let lastSavedSuccessfully = true;        function setupAnswerFields() {
+        const inputs = document.querySelectorAll('.answer-input');
+        
+        inputs.forEach(input => {
+            // Block direct paste attributes
+            input.setAttribute('onpaste', 'return false');
+            input.setAttribute('oncut', 'return false');
+            input.setAttribute('oncopy', 'return false');
+            input.setAttribute('ondrop', 'return false');
+            input.setAttribute('ondrag', 'return false');
+            input.setAttribute('autocomplete', 'off');
+            input.setAttribute('data-gramm', 'false'); // Disable Grammarly
+            
+            // Track legitimate keypresses
+            let lastKey = '';
+            let keyPressTime = Date.now();
+            let lastValue = input.value;
+            let lastLength = input.value.length;
+            let typingSpeed = [];
+            const maxTypingSpeed = 50; // milliseconds between keystrokes
+
+            // Monitor value changes
+            const observer = new MutationObserver(() => {
+                if (input.value !== lastValue) {
+                    const changeSize = Math.abs(input.value.length - lastLength);
+                    const timeSinceLastKey = Date.now() - lastKeyPressed;
+                    
+                    // If change is too large or too fast, likely a paste
+                    if (changeSize > 1 && timeSinceLastKey > 50) {
+                        input.value = lastValue;
+                        alert('Pasting is not allowed.');
+                    }
+                }
+                lastValue = input.value;
+                lastLength = input.value.length;
+            });
+            
+            observer.observe(input, {
+                attributes: true,
+                characterData: true,
+                subtree: true
+            });
+
+            // Keyboard events
+            input.addEventListener('keydown', function(e) {
+                // Block common paste shortcuts
+                if ((e.ctrlKey || e.metaKey) && 
+                    (e.key === 'v' || e.key === 'V' || 
+                     e.key === 'x' || e.key === 'X' ||
+                     e.key === 'c' || e.key === 'C')) {
+                    e.preventDefault();
+                    alert('Keyboard shortcuts are disabled.');
+                    return false;
+                }
+                
+                // Monitor typing speed
+                const now = Date.now();
+                if (lastKey) {
+                    const timeDiff = now - keyPressTime;
+                    typingSpeed.push(timeDiff);
+                    
+                    // If typing is too fast, likely automated
+                    if (typingSpeed.length > 5) {
+                        const avgSpeed = typingSpeed.reduce((a, b) => a + b) / typingSpeed.length;
+                        if (avgSpeed < maxTypingSpeed) {
+                            e.preventDefault();
+                            alert('Please type at a normal speed.');
+                            return false;
+                        }
+                        typingSpeed.shift();
+                    }
+                }
+                lastKey = e.key;
+                keyPressTime = now;
+            });
+
+            // Block all possible paste events
+            const preventPaste = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                alert('Pasting is not allowed.');
+                return false;
+            };
+
+            input.addEventListener('paste', preventPaste, true);
+            input.addEventListener('beforepaste', preventPaste, true);
+            input.addEventListener('drop', preventPaste, true);
+            input.addEventListener('dragover', preventPaste, true);
+            input.addEventListener('dragstart', preventPaste, true);
+            input.addEventListener('contextmenu', preventPaste, true);
+            input.addEventListener('mouseup', function(e) {
+                if (e.button === 2) preventPaste(e);
+            }, true);
+            
+            // Block programmatic value changes
+            input.addEventListener('beforeinput', function(e) {
+                if (e.inputType === 'insertFromPaste' || 
+                    e.inputType === 'insertFromDrop' || 
+                    e.inputType === 'insertFromYank' ||
+                    e.inputType === 'insertReplacementText') {
+                    e.preventDefault();
+                    alert('Pasting is not allowed.');
+                }
+            });
+
+            // Clean input on focus
+            input.addEventListener('focus', function() {
+                this.setAttribute('autocomplete', 'off');
+                this.setAttribute('autocorrect', 'off');
+                this.setAttribute('autocapitalize', 'off');
+                this.setAttribute('spellcheck', 'false');
+            });
+        });
+    }
+
+    // Initialize answer field protection
+    setupAnswerFields();
+
+    // Disable clipboard API
+    if (navigator.clipboard) {
+        const originalClipboard = { ...navigator.clipboard };
+        try {
+            Object.defineProperty(navigator, 'clipboard', {
+                value: {
+                    readText: () => Promise.reject(new Error('Clipboard access denied')),
+                    writeText: () => Promise.reject(new Error('Clipboard access denied')),
+                    read: () => Promise.reject(new Error('Clipboard access denied')),
+                    write: () => Promise.reject(new Error('Clipboard access denied')),
+                    ...originalClipboard
+                },
+                writable: false
+            });
+        } catch (e) {
+            console.warn('Could not override clipboard API');
+        }
+    }
+
+    // Additional security measure: Clear clipboard on focus
+    document.querySelectorAll('.answer-input').forEach(input => {
+        input.addEventListener('focus', function() {
+            try {
+                navigator.clipboard.writeText('').catch(() => {});
+            } catch (e) {}
+        });
+    });
 
     // Timer function
     function updateTimer() {

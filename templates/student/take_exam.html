@@ -121,14 +121,22 @@
         background-color: #545b62;
         transform: translateY(-1px);
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    /* Disable text selection for anti-copy */
+    }    /* Disable text selection for anti-copy */
     .no-copy {
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
+        -webkit-user-select: none !important;
+        -moz-user-select: none !important;
+        -ms-user-select: none !important;
+        user-select: none !important;
+        -webkit-touch-callout: none !important;
+        -khtml-user-select: none !important;
+        pointer-events: none !important;
+    }
+    
+    /* Allow pointer events on specific elements inside no-copy */
+    .no-copy input,
+    .no-copy button,
+    .no-copy a {
+        pointer-events: auto !important;
     }
     
     /* Fullscreen mode styling */
@@ -259,7 +267,7 @@
 <!-- Exam availability message area -->
 <div id="availability-message"></div>
 
-<div id="exam-container" class="no-copy">
+<div id="exam-container">
     <div class="exam-controls d-flex justify-content-between align-items-center">
         <div class="d-flex gap-2">
             <button type="button" id="fullscreen-toggle" class="btn btn-sm btn-outline-primary">
@@ -304,9 +312,8 @@
                         Question
                     </h5>
                     <span class="badge bg-primary px-3 py-2">{{ question.points }} points</span>
-                </div>
-                <div class="card-body">
-                    <div class="question-text mb-4">
+                </div>                <div class="card-body">
+                    <div class="question-text mb-4 no-copy">
                         {{ question.question_text | safe }}
                     </div>
                     
@@ -323,8 +330,7 @@
                                    name="answer_{{ question.id }}" 
                                    value="{{ option.id }}" 
                                    class="form-check-input answer-input"
-                                   {% if form.selected_option.data == option.id %}checked{% endif %}>
-                            <label class="form-check-label" for="option_{{ option.id }}">
+                                   {% if form.selected_option.data == option.id %}checked{% endif %}>                            <label class="form-check-label no-copy" for="option_{{ option.id }}">
                                 {{ option.option_text }}
                             </label>
                         </div>
@@ -334,23 +340,43 @@
                     <div class="text-answer-container">
                         {% set form = answer_forms[question.id] %}
                         {{ form.hidden_tag() }}
-                        <input type="hidden" name="question_id" value="{{ question.id }}">
-                        <textarea class="form-control answer-input"
+                        <input type="hidden" name="question_id" value="{{ question.id }}">                        <textarea class="form-control answer-input"
                                   rows="5"
                                   name="answer_{{ question.id }}"
                                   placeholder="Enter your answer here..."
+                                  onpaste="return false"
+                                  oncopy="return false"
+                                  oncut="return false"
+                                  ondrop="return false"
+                                  ondrag="return false"
+                                  oncontextmenu="return false"
+                                  spellcheck="false"
+                                  autocomplete="off"
+                                  autocorrect="off"
+                                  autocapitalize="off"
+                                  data-gramm="false"
                                   >{{ form.answer_text.data or '' }}</textarea>
                     </div>
                     {% elif question.question_type == 'code' %}
                     <div class="code-answer-container">
                         {% set form = answer_forms[question.id] %}
                         {{ form.hidden_tag() }}
-                        <input type="hidden" name="question_id" value="{{ question.id }}">
-                        <textarea class="form-control code-editor answer-input"
+                        <input type="hidden" name="question_id" value="{{ question.id }}">                        <textarea class="form-control code-editor answer-input"
                                   rows="10"
                                   style="font-family: monospace;"
                                   name="answer_{{ question.id }}"
                                   placeholder="Write your code here..."
+                                  onpaste="return false"
+                                  oncopy="return false"
+                                  oncut="return false"
+                                  ondrop="return false"
+                                  ondrag="return false"
+                                  oncontextmenu="return false"
+                                  spellcheck="false"
+                                  autocomplete="off"
+                                  autocorrect="off"
+                                  autocapitalize="off"
+                                  data-gramm="false"
                                   >{{ form.code_answer.data or '' }}</textarea>
                     </div>
                     {% endif %}
@@ -737,6 +763,162 @@ async function submitExam(isAutoSubmit = false) {
             e.returnValue = '';
             return '';
         }
+    });
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Prevent paste functionality
+    function preventPaste(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+    }
+
+    // Prevent special key combinations
+    function preventKeys(e) {
+        // Prevent Ctrl/Cmd + V/X/C
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V' || e.key === 'c' || e.key === 'C' || e.key === 'x' || e.key === 'X')) {
+            e.preventDefault();
+            return false;
+        }
+        // Prevent other potential paste shortcuts
+        if (e.key === 'Insert' && (e.shiftKey || e.ctrlKey)) {
+            e.preventDefault();
+            return false;
+        }
+    }
+
+    // Lock down all answer inputs
+    function lockDownInputs() {
+        const inputs = document.querySelectorAll('.answer-input');
+        inputs.forEach(input => {
+            // Prevent paste events
+            input.addEventListener('paste', preventPaste, true);
+            input.addEventListener('beforepaste', preventPaste, true);
+            input.addEventListener('copy', preventPaste, true);
+            input.addEventListener('cut', preventPaste, true);
+            input.addEventListener('beforecopy', preventPaste, true);
+            input.addEventListener('beforecut', preventPaste, true);
+            
+            // Prevent drag and drop
+            input.addEventListener('drop', preventPaste, true);
+            input.addEventListener('dragover', preventPaste, true);
+            input.addEventListener('dragenter', preventPaste, true);
+            input.addEventListener('dragleave', preventPaste, true);
+            input.addEventListener('dragstart', preventPaste, true);
+            
+            // Prevent context menu
+            input.addEventListener('contextmenu', preventPaste, true);
+            
+            // Prevent keyboard shortcuts
+            input.addEventListener('keydown', preventKeys, true);
+            
+            // Set restrictive attributes
+            input.setAttribute('autocomplete', 'off');
+            input.setAttribute('autocorrect', 'off');
+            input.setAttribute('autocapitalize', 'off');
+            input.setAttribute('spellcheck', 'false');
+            input.setAttribute('data-gramm', 'false');
+            
+            // Override clipboard API
+            input.oncopy = preventPaste;
+            input.oncut = preventPaste;
+            input.onpaste = preventPaste;
+        });
+
+        // Override clipboard API globally for the exam container
+        const examContainer = document.getElementById('exam-container');
+        examContainer.addEventListener('copy', preventPaste, true);
+        examContainer.addEventListener('cut', preventPaste, true);
+        examContainer.addEventListener('paste', preventPaste, true);
+    }
+
+    // Lock down all exam content and inputs
+    function lockDownContent() {
+        // Lock down answer inputs (existing function)
+        lockDownInputs();
+        
+        // Lock down all content with no-copy class
+        const noCopyElements = document.querySelectorAll('.no-copy');
+        noCopyElements.forEach(element => {
+            element.addEventListener('copy', preventPaste, true);
+            element.addEventListener('cut', preventPaste, true);
+            element.addEventListener('paste', preventPaste, true);
+            element.addEventListener('contextmenu', preventPaste, true);
+            element.addEventListener('dragstart', preventPaste, true);
+            element.addEventListener('drop', preventPaste, true);
+            element.addEventListener('selectstart', preventPaste, true);
+            
+            // Make content unselectable
+            element.style.userSelect = 'none';
+            element.style.webkitUserSelect = 'none';
+            element.style.msUserSelect = 'none';
+            element.style.mozUserSelect = 'none';
+        });
+
+        // Disable selection on the entire exam container
+        const examContainer = document.getElementById('exam-container');
+        examContainer.addEventListener('selectstart', function(e) {
+            const target = e.target;
+            // Allow selection only in answer inputs
+            if (!target.classList.contains('answer-input')) {
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        // Prevent right-click on exam container
+        examContainer.addEventListener('contextmenu', function(e) {
+            const target = e.target;
+            // Allow context menu only in answer inputs
+            if (!target.classList.contains('answer-input')) {
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        // Override getSelection API
+        const originalGetSelection = window.getSelection;
+        window.getSelection = function() {
+            const selection = originalGetSelection.apply(this, arguments);
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                const container = range.commonAncestorContainer;
+                const isWithinInput = (node) => {
+                    while (node && node !== document) {
+                        if (node.classList && node.classList.contains('answer-input')) {
+                            return true;
+                        }
+                        node = node.parentNode;
+                    }
+                    return false;
+                };
+                
+                if (!isWithinInput(container)) {
+                    selection.removeAllRanges();
+                }
+            }
+            return selection;
+        };
+    }
+
+    // Execute content lockdown
+    lockDownContent();
+
+    // Monitor for dynamically added elements
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+                lockDownContent();
+            }
+        });
+    });
+
+    // Start observing the document for added nodes
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
     });
 });
 </script>
