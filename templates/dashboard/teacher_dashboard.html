@@ -115,11 +115,10 @@
 
 <!-- Dashboard Statistics -->
 <div class="row mb-4">
-    <div class="col-md-3 mb-3">
-        <div class="card bg-primary text-white stats-card h-100">
+    <div class="col-md-3 mb-3">                <div class="card bg-primary text-white stats-card h-100">
             <div class="card-body">
                 <h5 class="card-title">Total Students</h5>
-                <h2 class="display-4">{{ total_students }}</h2>
+                <h2 class="display-4">{{ current_user.enrolled_students_count }}</h2>
                 <p class="card-text">Enrolled in your classes</p>
             </div>
         </div>
@@ -137,7 +136,7 @@
         <div class="card bg-info text-white stats-card h-100">
             <div class="card-body">
                 <h5 class="card-title">Pending Reviews</h5>
-                <h2 class="display-4">{{ pending_reviews|default(0) }}</h2>
+                <h2 class="display-4">{{ current_user.pending_reviews_count }}</h2>
                 <p class="card-text">Awaiting grading</p>
             </div>
         </div>

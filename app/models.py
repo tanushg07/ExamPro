@@ -27,6 +27,36 @@ class User(UserMixin, db.Model):
                                  back_populates='teacher', lazy='dynamic', overlaps="owned_classes")
     joined_groups = db.relationship('Group', secondary='group_membership', 
                                   back_populates='students', lazy='dynamic', overlaps="enrolled_groups")
+
+    @property
+    def enrolled_students_count(self):
+        """Get total number of students enrolled in teacher's classes"""
+        if not self.is_teacher():
+            return 0
+            
+        # Get unique student count across all owned groups
+        from sqlalchemy import func
+        result = db.session.query(func.count(func.distinct(GroupMembership.user_id)))\
+            .join(Group, Group.id == GroupMembership.group_id)\
+            .filter(Group.teacher_id == self.id)\
+            .scalar()
+        
+        return result or 0
+
+    @property
+    def pending_reviews_count(self):
+        """Get number of exam attempts awaiting grading"""
+        if not self.is_teacher():
+            return 0
+            
+        # Get count of ungraded but completed attempts for exams created by this teacher
+        from app.models import ExamAttempt, Exam
+        return ExamAttempt.query\
+            .join(Exam, ExamAttempt.exam_id == Exam.id)\
+            .filter(Exam.creator_id == self.id,
+                   ExamAttempt.is_completed == True,
+                   ExamAttempt.is_graded == False)\
+            .count()
     
     def set_password(self, password):
         # Using PBKDF2-SHA256 as specified
