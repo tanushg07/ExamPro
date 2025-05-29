@@ -220,11 +220,14 @@
                                 <a class="dropdown-item" href="{{ url_for('auth.profile') }}">
                                     <i class="bi bi-person-circle me-2"></i> Profile
                                 </a>
-                            </li>                            <li>
+                            </li>
+                            {% if current_user.is_admin() %}
+                            <li>
                                 <a class="dropdown-item" href="{{ url_for('admin.system_settings') }}">
                                     <i class="bi bi-gear me-2"></i> Settings
                                 </a>
                             </li>
+                            {% endif %}
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">

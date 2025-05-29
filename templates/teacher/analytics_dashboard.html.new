@@ -1,0 +1,327 @@
+{% extends 'base.html' %}
+
+{% block title %}Analytics Dashboard - Exam Platform{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .analytics-card {
+        transition: transform 0.2s;
+    }
+    .analytics-card:hover {
+        transform: translateY(-5px);
+    }
+    .chart-container {
+        position: relative;
+        height: 250px;
+        width: 100%;
+    }
+    .activity-item {
+        border-left: 3px solid #007bff;
+        padding-left: 15px;
+        margin-bottom: 15px;
+    }
+    .top-student {
+        border-radius: 5px;
+        margin-bottom: 10px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-left: 4px solid #28a745;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Analytics Dashboard</h1>
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card bg-primary text-white analytics-card">
+                <div class="card-body">
+                    <h6 class="card-title">Total Exams</h6>
+                    <h2>{{ total_exams }}</h2>
+                    <p class="card-text">
+                        <small>{{ published_exams }} published</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-success text-white analytics-card">
+                <div class="card-body">
+                    <h6 class="card-title">Exam Attempts</h6>
+                    <h2>{{ attempt_stats.total_attempts or 0 }}</h2>
+                    <p class="card-text">
+                        <small>{{ attempt_stats.completed_attempts or 0 }} completed</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-info text-white analytics-card">
+                <div class="card-body">
+                    <h6 class="card-title">Average Score</h6>
+                    <h2>{{ "%.1f"|format(attempt_stats.average_score or 0) }}%</h2>
+                    <p class="card-text">
+                        <small>Across all exams</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-warning text-dark analytics-card">
+                <div class="card-body">
+                    <h6 class="card-title">Completion Rate</h6>
+                    <h2>
+                        {% if attempt_stats.total_attempts %}
+                            {{ "%.1f"|format((attempt_stats.completed_attempts or 0) / attempt_stats.total_attempts * 100) }}%
+                        {% else %}
+                            0%
+                        {% endif %}
+                    </h2>
+                    <p class="card-text">
+                        <small>Attempts to completions</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts and Detailed Analytics -->
+    <div class="row">
+        <!-- Left Column - Charts -->
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Performance Overview</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="performance-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Recent Activity</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_activity %}
+                        <div class="activity-list">
+                            {% for activity in recent_activity %}
+                                <div class="activity-item">
+                                    <span class="text-muted small">{{ activity.submitted_at|format_datetime('%b %d, %Y %H:%M') }}</span>
+                                    <p class="mb-0">
+                                        <strong>{{ activity.username }}</strong> completed
+                                        <strong>{{ activity.title }}</strong>
+                                        {% if activity.score %}
+                                            with a score of <span class="badge bg-info">{{ "%.1f"|format(activity.score) }}%</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Awaiting Grading</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center py-4">No recent activity to display.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Top Students and Stats -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Top Performing Students</h5>
+                </div>
+                <div class="card-body">
+                    {% if top_students %}
+                        {% for student in top_students %}
+                            <div class="top-student">
+                                <div class="d-flex justify-content-between">
+                                    <h6 class="mb-0">{{ student.username }}</h6>
+                                    <span class="badge bg-success">{{ "%.1f"|format(student.avg_score) }}%</span>
+                                </div>
+                                <small class="text-muted">{{ student.attempts }} attempts</small>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted text-center py-4">No student data available yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Insights</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Exams Awaiting Grading
+                            <span class="badge bg-warning rounded-pill">
+                                {{ (attempt_stats.total_attempts or 0) - (attempt_stats.completed_attempts or 0) }}
+                            </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Average Completion Time
+                            <span class="badge bg-info rounded-pill">
+                                {% if attempt_stats.total_attempts %}
+                                    {{ "%.1f"|format(15) }} min
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Highest Score
+                            <span class="badge bg-success rounded-pill">
+                                {% if attempt_stats.total_attempts %}
+                                    {{ "%.1f"|format(100) }}%
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-footer bg-white text-center">
+                    <a href="#" class="btn btn-sm btn-outline-primary w-100">Generate Detailed Report</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('performance-chart').getContext('2d');
+    
+    // Initialize empty data
+    let graphData = [];
+    try {
+        // Get and parse the data
+        graphData = {{ graph_data|tojson|safe }};
+        console.log('Graph data loaded:', graphData);
+    } catch (e) {
+        console.error('Failed to parse graph data:', e);
+        return;  // Exit if data parsing fails
+    }
+
+    // Group attempts by exam title
+    const examStats = {};
+    graphData.forEach(activity => {
+        if (activity.score !== null) {
+            if (!examStats[activity.title]) {
+                examStats[activity.title] = {
+                    scores: [],
+                    avgScore: 0,
+                    highScore: 0,
+                    lowScore: 100
+                };
+            }
+            examStats[activity.title].scores.push(activity.score);
+            examStats[activity.title].highScore = Math.max(examStats[activity.title].highScore, activity.score);
+            examStats[activity.title].lowScore = Math.min(examStats[activity.title].lowScore, activity.score);
+        }
+    });
+
+    // Calculate averages and prepare chart data
+    const labels = [];
+    const avgScores = [];
+    const highScores = [];
+    const lowScores = [];
+
+    Object.entries(examStats).forEach(([title, stats]) => {
+        labels.push(title);
+        const avg = stats.scores.reduce((a, b) => a + b, 0) / stats.scores.length;
+        avgScores.push(parseFloat(avg.toFixed(1)));
+        highScores.push(parseFloat(stats.highScore.toFixed(1)));
+        lowScores.push(parseFloat(stats.lowScore.toFixed(1)));
+    });
+
+    // Skip chart creation if no data
+    if (labels.length === 0) {
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('No exam data available', ctx.canvas.width / 2, ctx.canvas.height / 2);
+        return;
+    }
+
+    // Create chart
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Average Score',
+                data: avgScores,
+                borderColor: 'rgba(54, 162, 235, 1)',
+                backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                tension: 0.4,
+                fill: false,
+                borderWidth: 2
+            }, {
+                label: 'Highest Score',
+                data: highScores,
+                borderColor: 'rgba(40, 167, 69, 1)',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                tension: 0.4,
+                fill: false,
+                borderWidth: 2
+            }, {
+                label: 'Lowest Score',
+                data: lowScores,
+                borderColor: 'rgba(220, 53, 69, 1)', 
+                backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                tension: 0.4,
+                fill: false,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.raw + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
