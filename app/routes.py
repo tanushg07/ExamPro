@@ -1490,13 +1490,24 @@ def view_result(attempt_id):
 @login_required
 @admin_required
 def admin_dashboard():
-    # Gather data for admin control center
-    from app.models import User, Exam, ExamAttempt, Notification
-    users = User.query.all()
+    # Get all non-admin users for main stats
+    non_admin_users = User.query.filter(User.user_type != 'admin').all()
+    teachers = [u for u in non_admin_users if u.is_teacher()]
+    students = [u for u in non_admin_users if u.is_student()]
+    
+    # Get other data
     exams = Exam.query.all()
     attempts = ExamAttempt.query.all()
     notifications = Notification.query.order_by(Notification.created_at.desc()).limit(10).all()
-    return render_template('dashboard/admin_dashboard.html', users=users, exams=exams, attempts=attempts, notifications=notifications)
+    
+    return render_template('dashboard/admin_dashboard.html',
+                         users=non_admin_users,  # Only pass non-admin users 
+                         total_users=len(non_admin_users),
+                         teacher_count=len(teachers),
+                         student_count=len(students),
+                         exams=exams,
+                         attempts=attempts, 
+                         notifications=notifications)
 
 
 @teacher_bp.route('/gradebook', methods=['GET'])
