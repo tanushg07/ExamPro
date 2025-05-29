@@ -208,26 +208,71 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Sample data for charts - In production, this would come from backend
     const ctx = document.getElementById('performance-chart').getContext('2d');
-    
-    // Create gradient for chart background
-    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-    gradient.addColorStop(0, 'rgba(54, 162, 235, 0.5)');
-    gradient.addColorStop(1, 'rgba(54, 162, 235, 0)');
-    
+      // Get activity data from Flask
+    const graphData = JSON.parse(`{{ graph_data|tojson|safe }}`);
+
+    // Group attempts by exam title
+    const examStats = {};
+    graphData.forEach(activity => {
+        if (activity.score !== null) {
+            if (!examStats[activity.title]) {
+                examStats[activity.title] = {
+                    scores: [],
+                    avgScore: 0,
+                    highScore: 0,
+                    lowScore: 100
+                };
+            }
+            examStats[activity.title].scores.push(activity.score);
+            examStats[activity.title].highScore = Math.max(examStats[activity.title].highScore, activity.score);
+            examStats[activity.title].lowScore = Math.min(examStats[activity.title].lowScore, activity.score);
+        }
+    });
+
+    // Calculate averages and prepare chart data
+    const labels = [];
+    const avgScores = [];
+    const highScores = [];
+    const lowScores = [];
+
+    Object.entries(examStats).forEach(([title, stats]) => {
+        labels.push(title);
+        const avg = stats.scores.reduce((a, b) => a + b, 0) / stats.scores.length;
+        avgScores.push(parseFloat(avg.toFixed(1)));
+        highScores.push(parseFloat(stats.highScore.toFixed(1)));
+        lowScores.push(parseFloat(stats.lowScore.toFixed(1)));
+    });
+
     // Create chart
     new Chart(ctx, {
         type: 'line',
         data: {
-            labels: ['January', 'February', 'March', 'April', 'May', 'June'],
+            labels: labels,
             datasets: [{
                 label: 'Average Score',
-                data: [65, 68, 72, 69, 74, 78],
+                data: avgScores,
                 borderColor: 'rgba(54, 162, 235, 1)',
-                backgroundColor: gradient,
+                backgroundColor: 'rgba(54, 162, 235, 0.1)',
                 tension: 0.4,
-                fill: true
+                fill: false,
+                borderWidth: 2
+            }, {
+                label: 'Highest Score',
+                data: highScores,
+                borderColor: 'rgba(40, 167, 69, 1)',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                tension: 0.4,
+                fill: false,
+                borderWidth: 2
+            }, {
+                label: 'Lowest Score',
+                data: lowScores,
+                borderColor: 'rgba(220, 53, 69, 1)', 
+                backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                tension: 0.4,
+                fill: false,
+                borderWidth: 2
             }]
         },
         options: {
@@ -246,12 +291,13 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             plugins: {
                 legend: {
-                    display: false
+                    display: true,
+                    position: 'top'
                 },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            return context.raw + '%';
+                            return context.dataset.label + ': ' + context.raw + '%';
                         }
                     }
                 }

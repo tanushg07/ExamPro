@@ -771,8 +771,8 @@ def view_analytics():
      .order_by(desc('avg_score'))\
      .limit(5)\
      .all()
-    
-    recent_activity = db.session.query(
+      # Convert query results to dictionaries for JSON serialization    # Get all graded exam attempts for analytics
+    exam_activity = db.session.query(
         ExamAttempt.id,
         User.username,
         Exam.title,
@@ -780,18 +780,54 @@ def view_analytics():
         ExamAttempt.submitted_at
     ).join(User, ExamAttempt.student_id == User.id)\
      .join(Exam, ExamAttempt.exam_id == Exam.id)\
-     .filter(Exam.creator_id == current_user.id)\
-     .order_by(ExamAttempt.submitted_at.desc())\
-     .limit(10)\
+     .filter(
+        Exam.creator_id == current_user.id,
+        ExamAttempt.is_completed == True,  # Changed to include all completed attempts
+        ExamAttempt.score.isnot(None)
+     )\
+     .order_by(Exam.title, ExamAttempt.submitted_at.desc())\
      .all()
-    
+
+    # Get recent activity (limited to 10) for the activity feed
+    recent_activity = exam_activity[:10] if exam_activity else []
+
+    # Convert all exam attempts to dictionary for the graph data
+    activity_data = [
+        {
+            'id': activity[0],
+            'username': activity[1],
+            'title': activity[2],
+            'score': float(activity[3]) if activity[3] is not None else None,
+            'submitted_at': activity[4].isoformat() if activity[4] else None
+        }
+        for activity in exam_activity
+    ]
+
+    # Convert top students to dictionaries
+    students_data = [
+        {
+            'id': student[0],
+            'username': student[1],
+            'avg_score': float(student[2]) if student[2] is not None else None,
+            'attempts': student[3]
+        }
+        for student in top_students
+    ]
+
+    # Convert attempt stats to dictionary
+    stats_data = {
+        'total_attempts': attempt_stats[0] if attempt_stats[0] else 0,
+        'completed_attempts': attempt_stats[1] if attempt_stats[1] else 0,
+        'average_score': float(attempt_stats[2]) if attempt_stats[2] else 0
+    }    # Separate data for graph vs. activity feed
     return render_template(
         'teacher/analytics_dashboard.html',
         total_exams=total_exams,
         published_exams=published_exams,
-        attempt_stats=attempt_stats,
-        top_students=top_students,
-        recent_activity=recent_activity
+        attempt_stats=stats_data,
+        top_students=students_data,
+        recent_activity=recent_activity[:10],  # Only show 10 most recent in feed
+        graph_data=activity_data  # All graded exams for the graph
     )
 
 

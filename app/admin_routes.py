@@ -15,52 +15,6 @@ from datetime import datetime
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
 
-@admin_bp.route('/activity-logs')
-@login_required
-@admin_required
-def activity_logs():
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
-    
-    # Filter parameters
-    user_id = request.args.get('user_id', type=int)
-    category = request.args.get('category')
-    action = request.args.get('action')
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    
-    # Base query
-    query = ActivityLog.query.join(User).order_by(ActivityLog.created_at.desc())
-    
-    # Apply filters
-    if user_id:
-        query = query.filter(ActivityLog.user_id == user_id)
-    if category:
-        query = query.filter(ActivityLog.category == category)
-    if action:
-        query = query.filter(ActivityLog.action == action)
-    if start_date:
-        query = query.filter(ActivityLog.created_at >= start_date)
-    if end_date:
-        query = query.filter(ActivityLog.created_at <= end_date)
-    
-    # Pagination
-    logs = query.paginate(page=page, per_page=per_page)
-    
-    # Get unique categories and actions for filter dropdowns
-    categories = db.session.query(ActivityLog.category).distinct().all()
-    actions = db.session.query(ActivityLog.action).distinct().all()
-    users = User.query.order_by(User.username).all()
-    
-    return render_template(
-        'admin/activity_logs.html',
-        logs=logs,
-        categories=categories,
-        actions=actions,
-        users=users
-    )
-
-
 @admin_bp.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -245,79 +199,6 @@ def create_exam():
             flash('Error creating exam.', 'danger')
     
     return render_template('admin/create_exam.html', form=form)
-
-@admin_bp.route('/backup', methods=['POST'])
-@login_required
-@admin_required
-def backup_data():
-    try:
-        # Get selected backup options
-        backup_users = 'backup_users' in request.form
-        backup_exams = 'backup_exams' in request.form
-        backup_attempts = 'backup_attempts' in request.form
-        
-        # Create backup timestamp
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_data = {}
-        
-        if backup_users:
-            users = User.query.all()
-            backup_data['users'] = [
-                {
-                    'username': user.username,
-                    'email': user.email,
-                    'user_type': user.user_type,
-                    'created_at': user.created_at.isoformat()
-                } for user in users
-            ]
-        
-        if backup_exams:
-            exams = Exam.query.all()
-            backup_data['exams'] = [
-                {
-                    'title': exam.title,
-                    'description': exam.description,
-                    'time_limit_minutes': exam.time_limit_minutes,
-                    'is_published': exam.is_published,
-                    'created_at': exam.created_at.isoformat()
-                } for exam in exams
-            ]
-        
-        if backup_attempts:
-            attempts = ExamAttempt.query.all()
-            backup_data['attempts'] = [
-                {
-                    'student_id': attempt.student_id,
-                    'exam_id': attempt.exam_id,
-                    'started_at': attempt.started_at.isoformat() if attempt.started_at else None,
-                    'completed_at': attempt.completed_at.isoformat() if attempt.completed_at else None,
-                    'score': attempt.score
-                } for attempt in attempts
-            ]
-        
-        # Create JSON file
-        backup_file = f'backup_{timestamp}.json'
-        with open(backup_file, 'w') as f:
-            json.dump(backup_data, f, indent=4)
-        
-        flash('Backup created successfully!', 'success')
-        return redirect(url_for('main.admin_dashboard'))
-        
-    except Exception as e:
-        flash('Error creating backup: ' + str(e), 'danger')
-        return redirect(url_for('main.admin_dashboard'))
-
-@admin_bp.route('/system-logs')
-@login_required
-@admin_required
-def system_logs():
-    # Get system logs (example implementation)
-    logs = [
-        {'timestamp': datetime.now(), 'level': 'INFO', 'message': 'System started successfully'},
-        {'timestamp': datetime.now(), 'level': 'WARNING', 'message': 'High CPU usage detected'},
-        # Add more logs as needed
-    ]
-    return render_template('admin/system_logs.html', logs=logs)
 
 @admin_bp.route('/settings', methods=['GET', 'POST'])
 @login_required

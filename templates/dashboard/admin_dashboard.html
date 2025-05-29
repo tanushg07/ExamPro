@@ -21,17 +21,8 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="mb-0">Admin Control Center</h1>
-        <div class="btn-group">
-            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#backupModal">
-                <i class="bi bi-cloud-download"></i> Backup Data
-            </button>
-            <a href="{{ url_for('admin.system_logs') }}" class="btn btn-outline-info">
-                <i class="bi bi-journal-text"></i> View Logs
-            </a>
-        </div>
+        <!-- Stats Overview -->
     </div>
-
-    <!-- Stats Overview -->
     <div class="row mb-4">
         <div class="col-md-3">
             <div class="card admin-card bg-primary text-white">
@@ -334,40 +325,6 @@
                 </div>
             </div>
         </div>    </div>
-</div>
-
-<!-- Backup Modal -->
-<div class="modal fade" id="backupModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Backup System Data</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>Select what data you want to backup:</p>
-                <form id="backupForm" method="POST" action="{{ url_for('admin.backup_data') }}">
-                    {{ csrf_token() }}
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" id="backupUsers" name="backup_users" checked>
-                        <label class="form-check-label" for="backupUsers">User Data</label>
-                    </div>
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" id="backupExams" name="backup_exams" checked>
-                        <label class="form-check-label" for="backupExams">Exam Data</label>
-                    </div>
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" id="backupAttempts" name="backup_attempts" checked>
-                        <label class="form-check-label" for="backupAttempts">Attempt Data</label>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" form="backupForm" class="btn btn-primary">Start Backup</button>
-            </div>
-        </div>
-    </div>
 </div>
 
 <!-- Mass Email Modal -->
