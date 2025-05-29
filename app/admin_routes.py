@@ -217,30 +217,56 @@ def system_settings():
     
     return render_template('admin/settings.html')
 
-@admin_bp.route('/send-mass-email', methods=['POST'])
+@admin_bp.route('/send-mass-notification', methods=['POST'])
 @login_required
 @admin_required
-def send_mass_email():
+def send_mass_notification():
     try:
         recipient_group = request.form.get('recipient_group')
         subject = request.form.get('subject')
         content = request.form.get('content')
         
+        if not subject or not content:
+            flash('Subject and content are required.', 'danger')
+            return redirect(url_for('main.admin_dashboard'))
+
         # Get recipients based on selected group
         if recipient_group == 'all':
-            recipients = User.query.all()
+            recipients = User.query.filter(User.id != current_user.id).all()
         elif recipient_group == 'teachers':
-            recipients = User.query.filter_by(user_type='teacher').all()
-        else:  # students
+            recipients = User.query.filter_by(user_type='teacher').filter(User.id != current_user.id).all()
+        elif recipient_group == 'students':
             recipients = User.query.filter_by(user_type='student').all()
+        else:
+            flash('Invalid recipient group selected.', 'danger')
+            return redirect(url_for('main.admin_dashboard'))
+
+        # Format the message with the subject
+        message = f"{subject}\n\n{content}"
         
-        # Send emails (implement actual email sending logic)
+        sent_count = 0
         for recipient in recipients:
-            # Add to email queue or send directly
-            pass
-        
-        flash(f'Email sent to {len(recipients)} recipients!', 'success')
+            try:
+                from .notifications import send_notification
+                # Send notification
+                send_notification(
+                    user_id=recipient.id,
+                    message=message,
+                    notification_type='admin_message',
+                    related_id=None
+                )
+                sent_count += 1
+            except Exception as e:
+                current_app.logger.error(f'Error sending notification to user {recipient.id}: {str(e)}')
+                continue
+
+        if sent_count > 0:
+            flash(f'Notification sent successfully to {sent_count} recipients!', 'success')
+        else:
+            flash('No notifications were sent. Please try again.', 'warning')
+            
     except Exception as e:
-        flash('Error sending email: ' + str(e), 'danger')
+        flash(f'Error processing request: {str(e)}', 'danger')
+        current_app.logger.error(f'Request error: {str(e)}')
     
     return redirect(url_for('main.admin_dashboard'))
