@@ -85,8 +85,7 @@ def save_answers(form_data, attempt, is_final_submission=False):
                 question_keys[question_id] = value
             except (ValueError, TypeError, IndexError):
                 continue
-    
-    # Process all collected questions
+      # Process all collected questions
     for question_id, value in question_keys.items():
         try:
             question = Question.query.get(question_id)
@@ -112,7 +111,7 @@ def save_answers(form_data, attempt, is_final_submission=False):
                 value = form_data.get(answer_key)
                 if value is None:
                     continue
-            
+                
             if question.question_type == 'mcq':
                 try:
                     option_id = int(value)
@@ -122,6 +121,10 @@ def save_answers(form_data, attempt, is_final_submission=False):
                     ).first()
                     if option:
                         answer.selected_option_id = option_id
+                        # Auto-grade MCQ questions  
+                        answer.is_correct = option.is_correct
+                        # Set points_awarded for MCQ questions (full points if correct, 0 if incorrect)
+                        answer.points_awarded = question.points if option.is_correct else 0
                 except (ValueError, TypeError):
                     continue
                     
@@ -155,7 +158,36 @@ def dashboard():
             return redirect(url_for('main.admin_dashboard'))
         elif current_user.is_teacher():
             exams = Exam.query.filter_by(creator_id=current_user.id).all()
-            return render_template('dashboard/teacher_dashboard.html', exams=exams)
+            
+            # Get recent activity for teacher's exams
+            recent_activity = db.session.query(
+                ExamAttempt,
+                User.username,
+                Exam.title
+            ).join(User, ExamAttempt.student_id == User.id)\
+             .join(Exam, ExamAttempt.exam_id == Exam.id)\
+             .filter(
+                Exam.creator_id == current_user.id,
+                ExamAttempt.is_completed == True,
+                ExamAttempt.submitted_at.isnot(None)
+             )\
+             .order_by(ExamAttempt.submitted_at.desc())\
+             .limit(10)\
+             .all()
+            
+            # Format the data for template
+            formatted_activity = []
+            for attempt, username, exam_title in recent_activity:
+                formatted_activity.append({
+                    'submitted_at': attempt.submitted_at,
+                    'username': username,
+                    'title': exam_title,
+                    'score': attempt.score
+                })
+            
+            return render_template('dashboard/teacher_dashboard.html', 
+                                 exams=exams, 
+                                 recent_activity=formatted_activity)
         else:
             joined_groups = current_user.joined_groups.all()
             group_ids = [g.id for g in joined_groups]
@@ -1883,3 +1915,214 @@ def submit_exam_direct():
             'message': 'Server error during submission',
             'error': str(e)
         }), 500
+
+@teacher_bp.route('/analytics/detailed-report', methods=['GET'])
+@login_required
+@teacher_required
+def generate_detailed_report():
+    """Generate a comprehensive detailed analytics report for the teacher"""
+    import csv
+    from io import StringIO
+    from datetime import datetime, timedelta
+    from app.security import log_security_event
+    
+    # Get report format (default to CSV)
+    report_format = request.args.get('format', 'csv').lower()
+    
+    log_security_event('DETAILED_REPORT_GENERATION', f'Teacher {current_user.id} generated detailed analytics report')
+    
+    try:
+        # Gather comprehensive data
+        exams = Exam.query.filter_by(creator_id=current_user.id).all()
+        
+        # Overall statistics
+        total_exams = len(exams)
+        published_exams = len([e for e in exams if e.is_published])
+          # Get all attempts for teacher's exams
+        all_attempts = db.session.query(ExamAttempt, User, Exam)\
+            .join(User, ExamAttempt.student_id == User.id)\
+            .join(Exam, ExamAttempt.exam_id == Exam.id)\
+            .filter(Exam.creator_id == current_user.id)\
+            .all()
+        
+        completed_attempts = [attempt_tuple for attempt_tuple in all_attempts if attempt_tuple[0].is_completed]
+        total_attempts = len(all_attempts)
+        completed_count = len(completed_attempts)
+          # Calculate overall statistics
+        if completed_count > 0:
+            scores = [attempt_tuple[0].score for attempt_tuple in completed_attempts if attempt_tuple[0].score is not None]
+            avg_score = sum(scores) / len(scores) if scores else 0
+            highest_score = max(scores) if scores else 0
+            lowest_score = min(scores) if scores else 0
+        else:
+            avg_score = highest_score = lowest_score = 0
+        
+        # Generate CSV report
+        if report_format == 'csv':
+            csv_data = StringIO()
+            csv_writer = csv.writer(csv_data)
+            
+            # Write header sections
+            csv_writer.writerow(['=== COMPREHENSIVE ANALYTICS REPORT ==='])
+            csv_writer.writerow(['Generated on:', datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
+            csv_writer.writerow(['Teacher:', current_user.username])
+            csv_writer.writerow([])
+              # Overall Statistics
+            csv_writer.writerow(['=== OVERALL STATISTICS ==='])
+            csv_writer.writerow(['Total Exams Created:', total_exams])
+            csv_writer.writerow(['Published Exams:', published_exams])
+            csv_writer.writerow(['Total Attempts:', total_attempts])
+            csv_writer.writerow(['Completed Attempts:', completed_count])
+            csv_writer.writerow(['Completion Rate:', f"{(completed_count/total_attempts*100):.1f}%" if total_attempts > 0 else "0%"])
+            csv_writer.writerow(['Overall Average Score:', f"{avg_score:.1f}%"])
+            csv_writer.writerow(['Highest Score:', f"{highest_score:.1f}%"])
+            csv_writer.writerow(['Lowest Score:', f"{lowest_score:.1f}%"])
+            csv_writer.writerow([])
+            
+            # Exam-by-Exam Analysis
+            csv_writer.writerow(['=== EXAM-BY-EXAM ANALYSIS ==='])
+            csv_writer.writerow(['Exam Title', 'Status', 'Questions', 'Attempts', 'Completed', 'Avg Score', 'High Score', 'Low Score', 'Completion Rate'])
+            
+            for exam in exams:
+                exam_attempts = [attempt_tuple for attempt_tuple in all_attempts if attempt_tuple[2].id == exam.id]
+                exam_completed = [attempt_tuple for attempt_tuple in exam_attempts if attempt_tuple[0].is_completed]
+                
+                question_count = Question.query.filter_by(exam_id=exam.id).count()
+                
+                if exam_completed:
+                    exam_scores = [attempt_tuple[0].score for attempt_tuple in exam_completed if attempt_tuple[0].score is not None]
+                    exam_avg = sum(exam_scores) / len(exam_scores) if exam_scores else 0
+                    exam_high = max(exam_scores) if exam_scores else 0
+                    exam_low = min(exam_scores) if exam_scores else 0
+                else:
+                    exam_avg = exam_high = exam_low = 0
+                
+                completion_rate = (len(exam_completed) / len(exam_attempts) * 100) if exam_attempts else 0
+                
+                csv_writer.writerow([
+                    exam.title,
+                    'Published' if exam.is_published else 'Draft',
+                    question_count,
+                    len(exam_attempts),
+                    len(exam_completed),
+                    f"{exam_avg:.1f}%",
+                    f"{exam_high:.1f}%",
+                    f"{exam_low:.1f}%",
+                    f"{completion_rate:.1f}%"
+                ])
+            
+            csv_writer.writerow([])
+            
+            # Student Performance Analysis
+            csv_writer.writerow(['=== STUDENT PERFORMANCE ANALYSIS ==='])
+            csv_writer.writerow(['Student', 'Total Attempts', 'Completed', 'Average Score', 'Best Score', 'Exams Taken'])
+              # Group by student
+            student_stats = {}
+            for attempt_tuple in completed_attempts:
+                attempt, user, exam = attempt_tuple[0], attempt_tuple[1], attempt_tuple[2]
+                if user.id not in student_stats:
+                    student_stats[user.id] = {
+                        'username': user.username,
+                        'attempts': [],
+                        'exams': set()
+                    }
+                if attempt.score is not None:
+                    student_stats[user.id]['attempts'].append(attempt.score)
+                student_stats[user.id]['exams'].add(exam.title)
+            
+            for student_id, stats in student_stats.items():
+                if stats['attempts']:
+                    avg_score = sum(stats['attempts']) / len(stats['attempts'])
+                    best_score = max(stats['attempts'])
+                    
+                    csv_writer.writerow([
+                        stats['username'],
+                        len(stats['attempts']),
+                        len(stats['attempts']),  # All listed attempts are completed
+                        f"{avg_score:.1f}%",
+                        f"{best_score:.1f}%",
+                        ', '.join(list(stats['exams'])[:3]) + ('...' if len(stats['exams']) > 3 else '')
+                    ])
+            
+            csv_writer.writerow([])
+            
+            # Question Analysis (for published exams with attempts)
+            csv_writer.writerow(['=== QUESTION DIFFICULTY ANALYSIS ==='])
+            csv_writer.writerow(['Exam', 'Question', 'Type', 'Points', 'Total Answers', 'Correct Answers', 'Difficulty (%)', 'Category'])
+            
+            for exam in exams:
+                if exam.is_published:
+                    questions = Question.query.filter_by(exam_id=exam.id).all()
+                    for question in questions:
+                        answers = Answer.query.filter_by(question_id=question.id).all()
+                        if answers:
+                            correct_answers = len([a for a in answers if a.is_correct])
+                            total_answers = len(answers)
+                            difficulty = (correct_answers / total_answers * 100) if total_answers > 0 else 0
+                            
+                            # Categorize difficulty
+                            if difficulty >= 80:
+                                category = "Easy"
+                            elif difficulty >= 60:
+                                category = "Medium" 
+                            elif difficulty >= 40:
+                                category = "Hard"
+                            else:
+                                category = "Very Hard"
+                            
+                            csv_writer.writerow([
+                                exam.title,
+                                question.question_text[:50] + "..." if len(question.question_text) > 50 else question.question_text,
+                                question.question_type,
+                                question.points,
+                                total_answers,
+                                correct_answers,
+                                f"{difficulty:.1f}%",
+                                category
+                            ])
+            
+            csv_writer.writerow([])
+              # Recent Activity (Last 30 days)
+            csv_writer.writerow(['=== RECENT ACTIVITY (Last 30 days) ==='])
+            csv_writer.writerow(['Date', 'Student', 'Exam', 'Score', 'Time Taken (min)'])
+            
+            thirty_days_ago = datetime.now() - timedelta(days=30)
+            recent_attempts = [
+                attempt_tuple for attempt_tuple in completed_attempts
+                if attempt_tuple[0].submitted_at and attempt_tuple[0].submitted_at >= thirty_days_ago
+            ]
+            
+            # Sort by date (most recent first)
+            recent_attempts.sort(key=lambda x: x[0].submitted_at, reverse=True)
+            
+            for attempt_tuple in recent_attempts[:50]:  # Limit to 50 most recent
+                attempt, user, exam = attempt_tuple[0], attempt_tuple[1], attempt_tuple[2]
+                time_taken = "N/A"
+                if attempt.started_at and attempt.completed_at:
+                    minutes = (attempt.completed_at - attempt.started_at).total_seconds() / 60
+                    time_taken = f"{minutes:.1f}"
+                
+                csv_writer.writerow([
+                    attempt.submitted_at.strftime('%Y-%m-%d %H:%M'),
+                    user.username,
+                    exam.title,
+                    f"{attempt.score:.1f}%" if attempt.score else "N/A",
+                    time_taken
+                ])
+            
+            # Create response
+            response = make_response(csv_data.getvalue())
+            filename = f"detailed_analytics_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+            response.headers['Content-type'] = 'text/csv'
+            
+            flash('Detailed analytics report generated successfully!', 'success')
+            return response
+        
+        else:
+            flash('Invalid report format. Only CSV is currently supported.', 'error')
+            return redirect(url_for('teacher.view_analytics'))
+    
+    except Exception as e:
+        flash(f'Error generating report: {str(e)}', 'error')
+        return redirect(url_for('teacher.view_analytics'))

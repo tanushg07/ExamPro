@@ -143,5 +143,7 @@ class AnswerHandler:
         for answer in mcq_answers:
             if answer.selected_option:
                 answer.is_correct = answer.selected_option.is_correct
+                # Set points_awarded for MCQ questions (full points if correct, 0 if incorrect)
+                answer.points_awarded = answer.question.points if answer.selected_option.is_correct else 0
                 
         attempt.is_graded = all(a.is_correct is not None for a in attempt.answers)

@@ -230,20 +230,23 @@ class ExamAttempt(db.Model):
             with db.session.begin_nested():
                 total_points = db.session.query(db.func.sum(Question.points)).filter(Question.exam_id == self.exam_id).scalar() or 0
                 earned_points = 0
-                
-                # Get all answers in one query to avoid n+1 problem
+                  # Get all answers in one query to avoid n+1 problem
                 answers_with_points = db.session.query(
                     Answer.points_awarded,
+                    Answer.is_correct,
                     Question.points,
                     Question.question_type
                 ).join(Question).filter(
                     Answer.attempt_id == self.id
                 ).all()
                 
-                for points_awarded, max_points, question_type in answers_with_points:
+                for points_awarded, is_correct, max_points, question_type in answers_with_points:
                     if question_type == 'mcq':
-                        # For MCQ questions, use all-or-nothing scoring
-                        if points_awarded == max_points:
+                        # For MCQ questions, use points_awarded if available, otherwise check is_correct
+                        if points_awarded is not None:
+                            earned_points += points_awarded
+                        elif is_correct:
+                            # If no points_awarded but is_correct is True, give full points
                             earned_points += max_points
                     else:
                         # For non-MCQ questions, use actual points awarded

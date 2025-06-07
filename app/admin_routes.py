@@ -1,10 +1,12 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, current_app
 from flask_login import login_required, current_user
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import joinedload
 from .decorators import admin_required
 from .models import (
     db, User, Exam, ExamAttempt, Question, QuestionOption, 
-    Answer, ExamReview, ActivityLog
+    Answer, ExamReview, ActivityLog, Notification, SecurityLog, 
+    GroupMembership, Group
 )
 from .forms import UserEditForm, CreateUserForm, ExamForm
 from werkzeug.security import generate_password_hash
@@ -55,15 +57,102 @@ def delete_user(user_id):
         return redirect(url_for('main.admin_dashboard'))
     
     try:
-        # Delete related records first
+        from .models import (
+            Notification, SecurityLog, GroupMembership, ActivityLog, 
+            Answer, ExamReview, Question, QuestionOption
+        )
+        
+        # Delete all related records in the correct order to handle foreign key constraints
+        
+        # 1. Delete answers for all exam attempts by this user
+        for attempt in ExamAttempt.query.filter_by(student_id=user.id).all():
+            Answer.query.filter_by(attempt_id=attempt.id).delete()
+        
+        # 2. Delete exam attempts by this user
         ExamAttempt.query.filter_by(student_id=user.id).delete()
+        
+        # 3. Delete exam reviews by this user
+        ExamReview.query.filter_by(student_id=user.id).delete()
+        
+        # 4. Delete all exams created by this user (and their related data)
+        for exam in Exam.query.filter_by(creator_id=user.id).all():
+            # Delete answers for all attempts on this exam
+            for attempt in ExamAttempt.query.filter_by(exam_id=exam.id).all():
+                Answer.query.filter_by(attempt_id=attempt.id).delete()
+            
+            # Delete all attempts on this exam
+            ExamAttempt.query.filter_by(exam_id=exam.id).delete()
+            
+            # Delete all reviews for this exam
+            ExamReview.query.filter_by(exam_id=exam.id).delete()
+            
+            # Delete question options and questions for this exam
+            for question in Question.query.filter_by(exam_id=exam.id).all():
+                QuestionOption.query.filter_by(question_id=question.id).delete()
+            Question.query.filter_by(exam_id=exam.id).delete()
+        
+        # 5. Delete exams created by this user
         Exam.query.filter_by(creator_id=user.id).delete()
+          
+        # 6. Handle groups owned by this user (if teacher)
+        if user.user_type == 'teacher':
+            # For groups owned by this teacher, we need to delete them completely
+            # since teacher_id cannot be null and we're deleting the teacher
+            owned_groups = Group.query.filter_by(teacher_id=user.id).all()
+            for group in owned_groups:
+                # First remove all group memberships
+                GroupMembership.query.filter_by(group_id=group.id).delete()
+                
+                # Delete all exams in this group (and their related data)
+                group_exams = Exam.query.filter_by(group_id=group.id).all()
+                for exam in group_exams:
+                    # Delete answers for all attempts on this exam
+                    for attempt in ExamAttempt.query.filter_by(exam_id=exam.id).all():
+                        Answer.query.filter_by(attempt_id=attempt.id).delete()
+                    
+                    # Delete all attempts on this exam
+                    ExamAttempt.query.filter_by(exam_id=exam.id).delete()
+                    
+                    # Delete all reviews for this exam
+                    ExamReview.query.filter_by(exam_id=exam.id).delete()
+                    
+                    # Delete question options and questions for this exam
+                    for question in Question.query.filter_by(exam_id=exam.id).all():
+                        QuestionOption.query.filter_by(question_id=question.id).delete()
+                    Question.query.filter_by(exam_id=exam.id).delete()
+                
+                # Delete the exams
+                Exam.query.filter_by(group_id=group.id).delete()
+                
+                # Finally delete the group
+                db.session.delete(group)
+                current_app.logger.info(f'Deleted group {group.id} ({group.name}) due to teacher deletion')
+        
+        # 7. Delete group memberships (student enrollments)
+        GroupMembership.query.filter_by(user_id=user.id).delete()
+        
+        # 8. Delete notifications for this user
+        Notification.query.filter_by(user_id=user.id).delete()
+        
+        # 9. Delete security logs for this user
+        SecurityLog.query.filter_by(user_id=user.id).delete()
+        
+        # 10. Delete activity logs for this user
+        ActivityLog.query.filter_by(user_id=user.id).delete()
+        
+        # 11. Finally, delete the user
         db.session.delete(user)
         db.session.commit()
         flash('User deleted successfully!', 'success')
+        
     except SQLAlchemyError as e:
         db.session.rollback()
-        flash('Error deleting user.', 'danger')
+        current_app.logger.error(f'Error deleting user {user_id}: {str(e)}')
+        flash(f'Error deleting user: {str(e)}', 'danger')
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Unexpected error deleting user {user_id}: {str(e)}')
+        flash('An unexpected error occurred while deleting the user.', 'danger')
     
     return redirect(url_for('main.admin_dashboard'))
 
@@ -270,3 +359,29 @@ def send_mass_notification():
         current_app.logger.error(f'Request error: {str(e)}')
     
     return redirect(url_for('main.admin_dashboard'))
+
+@admin_bp.route('/activities', methods=['GET'])
+@login_required
+@admin_required
+def view_all_activities():
+    """View all recent activities in the system"""
+    page = request.args.get('page', 1, type=int)
+    per_page = 25  # Show 25 activities per page
+    
+    # Get all exam attempts with related data, ordered by most recent
+    activities_query = ExamAttempt.query.options(
+        joinedload(ExamAttempt.student),
+        joinedload(ExamAttempt.exam)
+    ).order_by(ExamAttempt.started_at.desc())
+    
+    # Paginate the results
+    activities = activities_query.paginate(
+        page=page, 
+        per_page=per_page, 
+        error_out=False
+    )
+    
+    return render_template(
+        'admin/all_activities.html',
+        activities=activities
+    )

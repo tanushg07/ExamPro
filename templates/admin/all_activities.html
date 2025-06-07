@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+
+{% block title %}All Activities - Admin Dashboard{% endblock %}
+
+{% block styles %}
+<style>
+.activity-card {
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    margin-bottom: 1rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.activity-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.activity-status {
+    font-size: 0.85rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+}
+
+.status-completed {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-in-progress {
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+
+.status-pending {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.pagination {
+    justify-content: center;
+}
+
+.score-badge {
+    font-weight: 600;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1">All System Activities</h1>
+            <p class="text-muted mb-0">Complete view of all exam attempts and user activities</p>
+        </div>
+        <a href="{{ url_for('main.admin_dashboard') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+    {% if activities.items %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Recent Activities ({{ activities.total }} total)</h5>
+                        <small class="text-muted">Showing {{ activities.per_page * (activities.page - 1) + 1 }} - {{ activities.per_page * (activities.page - 1) + activities.items|length }} of {{ activities.total }}</small>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% for attempt in activities.items %}
+                    <div class="activity-card border-0 border-bottom">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-3">
+                                            {% if attempt.completed_at %}
+                                                <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                                            {% else %}
+                                                <i class="bi bi-clock-fill text-warning fs-4"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-1">
+                                                <strong>{{ attempt.student.username }}</strong>
+                                                {% if attempt.completed_at %}completed{% else %}started{% endif %}
+                                                <strong>"{{ attempt.exam.title }}"</strong>
+                                            </h6>
+                                            <small class="text-muted">
+                                                Started: {{ attempt.started_at.strftime('%Y-%m-%d %H:%M') }}
+                                                {% if attempt.completed_at %}
+                                                    | Completed: {{ attempt.completed_at.strftime('%Y-%m-%d %H:%M') }}
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    {% if attempt.completed_at %}
+                                        <span class="activity-status status-completed">
+                                            <i class="bi bi-check-circle me-1"></i>Completed
+                                        </span>
+                                    {% else %}
+                                        <span class="activity-status status-in-progress">
+                                            <i class="bi bi-clock me-1"></i>In Progress
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-3 text-end">
+                                    {% if attempt.score is not none %}
+                                        <span class="badge 
+                                            {% if attempt.score >= 90 %}bg-success
+                                            {% elif attempt.score >= 80 %}bg-info
+                                            {% elif attempt.score >= 70 %}bg-warning
+                                            {% else %}bg-danger
+                                            {% endif %} score-badge">
+                                            {{ "%.1f"|format(attempt.score) }}%
+                                        </span>
+                                    {% elif attempt.completed_at %}
+                                        <span class="badge bg-secondary">Pending Grading</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-dark">Not Completed</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            {% if attempt.completed_at and attempt.started_at %}
+                            <div class="row mt-2">
+                                <div class="col-12">
+                                    <small class="text-muted">
+                                        <i class="bi bi-stopwatch me-1"></i>
+                                        Duration: 
+                                        {% set duration = (attempt.completed_at - attempt.started_at).total_seconds() %}
+                                        {% if duration < 60 %}
+                                            {{ duration|int }} seconds
+                                        {% elif duration < 3600 %}
+                                            {{ (duration / 60)|int }} minutes
+                                        {% else %}
+                                            {{ (duration / 3600)|round(1) }} hours
+                                        {% endif %}
+                                    </small>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            {% if activities.pages > 1 %}
+            <nav aria-label="Activities pagination" class="mt-4">
+                <ul class="pagination">
+                    {% if activities.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.view_all_activities', page=activities.prev_num) }}">Previous</a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for page_num in activities.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != activities.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.view_all_activities', page=page_num) }}">{{ page_num }}</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if activities.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.view_all_activities', page=activities.next_num) }}">Next</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-activity fs-1 text-muted mb-3"></i>
+                    <h4>No Activities Found</h4>
+                    <p class="text-muted">There are no recorded activities in the system yet.</p>
+                    <a href="{{ url_for('main.admin_dashboard') }}" class="btn btn-primary">
+                        <i class="bi bi-arrow-left"></i> Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

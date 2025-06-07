@@ -194,8 +194,7 @@ def save_answers(form_data, attempt, is_final_submission=False):
                 value = form_data.get(answer_key)
                 if value is None:
                     continue
-            
-            if question.question_type == 'mcq':
+              if question.question_type == 'mcq':
                 try:
                     option_id = int(value)
                     option = QuestionOption.query.filter_by(
@@ -206,6 +205,8 @@ def save_answers(form_data, attempt, is_final_submission=False):
                         answer.selected_option_id = option_id
                         # Auto-grade MCQ questions
                         answer.is_correct = option.is_correct
+                        # Set points_awarded for MCQ questions (full points if correct, 0 if incorrect)
+                        answer.points_awarded = question.points if option.is_correct else 0
                 except (ValueError, TypeError):
                     continue
                     
