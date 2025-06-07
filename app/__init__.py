@@ -1,9 +1,9 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, g
 from flask_login import LoginManager, current_user
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, generate_csrf
 from datetime import timedelta
 
 from config import Config
@@ -43,13 +43,19 @@ def create_app(config_class=Config):
     login_manager.init_app(app)
     mail.init_app(app)
     csrf.init_app(app)
-    migrate = Migrate(app, db)    # Configure CSRF for AJAX
-    @app.before_request
-    def csrf_protect():
-        if request.method != 'GET':
-            token = request.headers.get('X-CSRF-Token')
-            if token:
-                return token
+    migrate = Migrate(app, db)
+    
+    # Make CSRF token available in templates
+    @app.context_processor
+    def inject_csrf_token():
+        return dict(csrf_token=generate_csrf)
+    
+    @app.after_request
+    def add_csrf_header(response):
+        if 'csrf_token' not in g:
+            g.csrf_token = generate_csrf()
+        response.headers.set('X-CSRF-Token', g.csrf_token)
+        return response
 
     # Add context processor to make models available in templates
     @app.context_processor

@@ -66,30 +66,9 @@ def logout():
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
-    if current_user.is_authenticated:
-        return redirect(url_for('main.dashboard'))
-    
-    form = RegistrationForm()
-    if form.validate_on_submit():
-        user = User(
-            username=form.username.data,
-            email=form.email.data,
-            user_type=form.user_type.data  # Only 'teacher' or 'admin' allowed
-        )
-        user.set_password(form.password.data)
-        
-        try:
-            db.session.add(user)
-            db.session.commit()
-            flash('Registration successful! You can now log in.', 'success')
-            return redirect(url_for('auth.login'))
-        except Exception as e:
-            db.session.rollback()
-            flash('Error during registration. Please try again.', 'danger')
-            # Log the error for administrator review (not shown to user)
-            print(f"Registration error: {str(e)}")
-    
-    return render_template('auth/register.html', form=form)
+    # Redirect all registration attempts to login page
+    flash('Registration is only available through administrators. Please contact your administrator.', 'info')
+    return redirect(url_for('auth.login'))
 
 
 @auth_bp.route('/profile')
