@@ -300,9 +300,8 @@
                 {% else %}
                     <p class="text-muted text-center">No recent activity to display.</p>
                 {% endif %}
-            </div>
-            <div class="card-footer bg-white">
-                <a href="#" class="btn btn-sm btn-link text-decoration-none">View All Activity</a>
+            </div>            <div class="card-footer bg-white">
+                <a href="{{ url_for('teacher.view_analytics') }}" class="btn btn-sm btn-link text-decoration-none">View All Activity</a>
             </div>
         </div>
 
