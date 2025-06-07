@@ -289,23 +289,6 @@ def create_exam():
     
     return render_template('admin/create_exam.html', form=form)
 
-@admin_bp.route('/settings', methods=['GET', 'POST'])
-@login_required
-@admin_required
-def system_settings():
-    if request.method == 'POST':
-        try:
-            # Update system settings
-            current_app.config['MAIL_SERVER'] = request.form.get('mail_server')
-            current_app.config['MAIL_PORT'] = int(request.form.get('mail_port'))
-            # Add more settings as needed
-            
-            flash('Settings updated successfully!', 'success')
-        except Exception as e:
-            flash('Error updating settings: ' + str(e), 'danger')
-    
-    return render_template('admin/settings.html')
-
 @admin_bp.route('/send-mass-notification', methods=['POST'])
 @login_required
 @admin_required
