@@ -157,12 +157,11 @@
                                 {% for exam in completed_exams %}
                                     {% set attempt = current_user.exam_attempts.filter_by(exam_id=exam.id, is_completed=True).first() %}
                                     <tr>
-                                        <td>{{ exam.title }}</td>
-                                        <td>
+                                        <td>{{ exam.title }}</td>                                        <td>
                                             {% if attempt and attempt.completed_at %}
-                                                {{ attempt.completed_at.strftime('%Y-%m-%d %H:%M') }}
+                                                {{ attempt.completed_at|datetime }}
                                             {% elif attempt and attempt.submitted_at %}
-                                                {{ attempt.submitted_at.strftime('%Y-%m-%d %H:%M') }}
+                                                {{ attempt.submitted_at|datetime }}
                                             {% elif attempt and attempt.is_completed %}
                                                 Completed
                                             {% else %}
