@@ -1,0 +1,51 @@
+question_text,question_type,points,options,correct_answer
+"What is the capital of France?",mcq,2,"London|Berlin|Paris|Madrid",2
+"Which programming language is known for its use in web development and has a snake as its mascot?",mcq,3,"Java|Python|C++|JavaScript",1
+"What is 15 + 27?",mcq,1,"40|41|42|43",2
+"Which planet is known as the Red Planet?",mcq,2,"Venus|Mars|Jupiter|Saturn",1
+"What does HTML stand for?",mcq,3,"Hyper Text Markup Language|High Tech Modern Language|Home Tool Markup Language|Hyperlink and Text Markup Language",0
+"In which year did World War II end?",mcq,2,"1944|1945|1946|1947",1
+"What is the largest mammal in the world?",mcq,2,"African Elephant|Blue Whale|Giraffe|Hippopotamus",1
+"Which of the following is a primary color?",mcq,1,"Green|Orange|Red|Purple",2
+"What is the chemical symbol for gold?",mcq,3,"Go|Gd|Au|Ag",2
+"Who wrote the novel '1984'?",mcq,3,"Aldous Huxley|George Orwell|Ray Bradbury|Kurt Vonnegut",1
+"What is the square root of 144?",mcq,2,"11|12|13|14",1
+"Which continent is the largest by land area?",mcq,2,"Africa|Asia|North America|Europe",1
+"What is the main component of the sun?",mcq,3,"Helium|Hydrogen|Oxygen|Carbon",1
+"In computer science, what does CPU stand for?",mcq,3,"Central Processing Unit|Computer Personal Unit|Central Program Unit|Computer Processing Unit",0
+"Which of these is NOT a web browser?",mcq,2,"Chrome|Firefox|Safari|Photoshop",3
+"What is the freezing point of water in Celsius?",mcq,1,"0°C|32°C|100°C|-273°C",0
+"Who painted the Mona Lisa?",mcq,3,"Vincent van Gogh|Pablo Picasso|Leonardo da Vinci|Michelangelo",2
+"What is the smallest unit of matter?",mcq,3,"Molecule|Atom|Electron|Proton",1
+"Which programming paradigm does Python primarily support?",mcq,4,"Functional|Object-oriented|Procedural|All of the above",3
+"What does SQL stand for?",mcq,3,"Structured Query Language|Simple Query Language|Standard Query Language|System Query Language",0
+"Explain the concept of object-oriented programming and list its four main principles.",text,10,"",""
+"Describe the water cycle and its importance to Earth's ecosystem.",text,8,"",""
+"What are the advantages and disadvantages of renewable energy sources?",text,6,"",""
+"Explain the difference between HTTP and HTTPS protocols.",text,5,"",""
+"Discuss the impact of social media on modern communication.",text,7,"",""
+"Write a Python function that calculates the factorial of a number using recursion.",code,10,"",""
+"Create a SQL query to find all students with grades above 85 from a table named 'students' with columns 'name', 'grade', and 'subject'.",code,8,"",""
+"Write a JavaScript function that reverses a string without using built-in reverse methods.",code,6,"",""
+"Create a HTML structure for a basic contact form with fields for name, email, and message.",code,5,"",""
+"Write a Python program that finds the largest number in a list without using the max() function.",code,7,"",""
+"Which of the following sorting algorithms has the best average-case time complexity?",mcq,4,"Bubble Sort|Insertion Sort|Merge Sort|Selection Sort",2
+"What is the time complexity of binary search?",mcq,4,"O(n)|O(log n)|O(n log n)|O(n²)",1
+"In database design, what does ACID stand for?",mcq,5,"Atomicity Consistency Isolation Durability|Accuracy Completeness Integrity Dependability|Accessibility Coordination Integration Distribution|Authentication Control Identity Documentation",0
+"Which HTTP status code indicates 'Not Found'?",mcq,2,"200|301|404|500",2
+"What is the difference between '==' and '===' in JavaScript?",mcq,4,"No difference|=== checks type and value, == only checks value|=== is for numbers, == is for strings|== checks type and value, === only checks value",1
+"Which design pattern is used to ensure a class has only one instance?",mcq,4,"Factory Pattern|Observer Pattern|Singleton Pattern|Strategy Pattern",2
+"What does API stand for?",mcq,2,"Application Programming Interface|Automated Program Integration|Advanced Programming Instructions|Application Process Integration",0
+"In Git, what command is used to create a new branch?",mcq,3,"git new branch|git create branch|git branch|git checkout -b",2
+"What is the main purpose of a firewall in network security?",mcq,4,"Speed up internet connection|Block unauthorized access|Store passwords|Encrypt data",1
+"Which of the following is NOT a relational database management system?",mcq,3,"MySQL|PostgreSQL|MongoDB|Oracle",2
+"Explain the Model-View-Controller (MVC) architectural pattern and its benefits.",text,12,"",""
+"Describe the differences between machine learning, deep learning, and artificial intelligence.",text,10,"",""
+"What is cloud computing and what are its main service models?",text,8,"",""
+"Explain the concept of version control and why it's important in software development.",text,6,"",""
+"Discuss the principles of responsive web design.",text,7,"",""
+"Create a Python class for a Bank Account with methods for deposit, withdraw, and check balance.",code,12,"",""
+"Write a CSS rule that creates a responsive navigation bar that collapses on mobile devices.",code,8,"",""
+"Implement a binary search algorithm in Python.",code,10,"",""
+"Write a SQL query to join two tables and calculate the average salary by department.",code,9,"",""
+"Create a React component that displays a list of items with add and delete functionality.",code,15,"",""
