@@ -17,9 +17,15 @@
                 <div class="card-header bg-primary text-white">
                     <h5 class="mb-0">Create New Exam</h5>
                 </div>
-                <div class="card-body">
-                    <form method="POST">
+                <div class="card-body">                    <form method="POST">
                         {{ form.csrf_token }}
+                        <div class="mb-3">
+                            {{ form.group_id.label(class="form-label") }}
+                            {{ form.group_id(class="form-select") }}
+                            {% for error in form.group_id.errors %}
+                                <span class="text-danger">{{ error }}</span>
+                            {% endfor %}
+                        </div>
                         <div class="mb-3">
                             {{ form.title.label(class="form-label") }}
                             {{ form.title(class="form-control") }}

@@ -1,0 +1,370 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Exam - {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('main.admin_dashboard') }}">Admin Dashboard</a></li>
+                <li class="breadcrumb-item active">Edit Exam</li>
+            </ol>
+        </nav>
+        <h1>Edit Exam: {{ exam.title }}</h1>
+        <p class="lead">Add and manage questions for this exam.</p>
+    </div>
+    <div class="col-md-4 text-end">
+        {% if not exam.is_published %}
+            <form method="POST" action="{{ url_for('admin.toggle_exam_publish', exam_id=exam.id) }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-success">Publish Exam</button>
+            </form>
+        {% else %}
+            <span class="badge bg-success fs-6 p-2">Published</span>
+            <form method="POST" action="{{ url_for('admin.toggle_exam_publish', exam_id=exam.id) }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-warning">Unpublish</button>
+            </form>
+        {% endif %}
+        <a href="{{ url_for('main.admin_dashboard') }}" class="btn btn-info ms-2">Back to Dashboard</a>
+    </div>
+</div>
+
+<hr>
+
+<!-- Exam Settings -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Exam Settings</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.edit_exam', exam_id=exam.id) }}">
+                    {{ form.csrf_token }}
+                    <input type="hidden" name="update_settings" value="1">
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.title.label(class="form-label") }}
+                                {{ form.title(class="form-control") }}
+                                {% for error in form.title.errors %}
+                                    <span class="text-danger">{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                {{ form.time_limit_minutes.label(class="form-label") }}
+                                {{ form.time_limit_minutes(class="form-control") }}
+                                {% for error in form.time_limit_minutes.errors %}
+                                    <span class="text-danger">{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                {{ form.group_id.label(class="form-label") }}
+                                {{ form.group_id(class="form-select") }}
+                                {% for error in form.group_id.errors %}
+                                    <span class="text-danger">{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                {{ form.description.label(class="form-label") }}
+                                {{ form.description(class="form-control", rows=3) }}
+                                {% for error in form.description.errors %}
+                                    <span class="text-danger">{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    {{ form.is_published(class="form-check-input") }}
+                                    {{ form.is_published.label(class="form-check-label") }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="submit" class="btn btn-primary">Update Settings</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Question List -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Exam Questions</h5>
+                <span class="badge bg-secondary">{{ questions|length }} Questions</span>
+            </div>
+            <div class="card-body">
+                {% if questions %}
+                    <div class="list-group">
+                        {% for question in questions %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1">Question {{ loop.index }}: {{ question.question_type|upper }}</h5>
+                                    <span class="badge bg-primary">{{ question.points }} points</span>
+                                </div>
+                                <p class="mb-1">{{ question.question_text }}</p>
+                                
+                                {% if question.question_type == 'mcq' %}
+                                    <div class="ms-3 mt-2">
+                                        <strong>Options:</strong>
+                                        <ul>
+                                            {% for option in question.options %}
+                                                <li>
+                                                    {{ option.option_text }}
+                                                    {% if option.is_correct %}
+                                                        <span class="text-success"> (Correct)</span>
+                                                    {% endif %}
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                {% endif %}
+                                
+                                <div class="d-flex justify-content-end mt-2">
+                                    <form method="POST" 
+                                          action="{{ url_for('admin.delete_question', exam_id=exam.id, question_id=question.id) }}"
+                                          class="d-inline"
+                                          onsubmit="return confirm('Are you sure you want to delete this question?')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <p>No questions added yet. Use the form below to add questions.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Question Form -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Add New Question</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.edit_exam', exam_id=exam.id) }}">
+                    {{ question_form.csrf_token }}
+                    <input type="hidden" name="add_question" value="1">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            {{ question_form.question_text.label(class="form-label") }}
+                            {{ question_form.question_text(class="form-control", rows=3) }}
+                            {% if question_form.question_text.errors %}
+                                <div class="text-danger">
+                                    {% for error in question_form.question_text.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ question_form.question_type.label(class="form-label") }}
+                                {{ question_form.question_type(class="form-select", onchange="toggleQuestionType()") }}
+                                <div id="questionTypeHelp" class="form-text mt-2"></div>
+                            </div>
+                            <div class="mb-3">
+                                {{ question_form.points.label(class="form-label") }}
+                                {{ question_form.points(class="form-control") }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if question_form.question_type.errors %}
+                        <div class="alert alert-danger">
+                            {% for error in question_form.question_type.errors %}
+                                {{ error }}<br>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    {% if question_form.points.errors %}
+                        <div class="alert alert-danger">
+                            {% for error in question_form.points.errors %}
+                                {{ error }}<br>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    
+                    <!-- MCQ Options -->
+                    <div id="mcqOptions" style="display: none;" class="mt-3">
+                        <h5 class="mb-3">Answer Options</h5>
+                        <div class="mb-2 alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            For MCQ questions:
+                            <ul class="mb-0">
+                                <li><strong>Required:</strong> First two options must be filled</li>
+                                <li><strong>Required:</strong> At least one option must be correct</li>
+                                <li>Additional options are optional (leave empty if not needed)</li>
+                                <li>Empty options will be ignored</li>
+                            </ul>
+                        </div>
+                        
+                        {% if question_form.errors %}
+                            <div class="alert alert-danger">
+                                {% for field, errors in question_form.errors.items() %}
+                                    {% for error in errors %}
+                                        <p class="mb-0">{{ error }}</p>
+                                    {% endfor %}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        
+                        {% if question_form.errors.get('options') %}
+                            <div class="alert alert-danger">
+                                {% for error in question_form.errors.options %}
+                                    {{ error }}<br>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        
+                        <div class="row">
+                            {% for option_form in question_form.options %}
+                                <div class="col-md-6 mb-2">
+                                    <div class="card {% if loop.index <= 2 %}border-primary{% endif %}">
+                                        <div class="card-header {% if loop.index <= 2 %}bg-primary text-white{% endif %}">
+                                            Option {{ loop.index }}
+                                            {% if loop.index <= 2 %}<span class="badge bg-light text-primary">Required</span>{% endif %}
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-2">
+                                                {{ option_form.option_text(class="form-control", placeholder="Enter option text") }}
+                                                {% if option_form.option_text.errors %}
+                                                    <div class="invalid-feedback d-block">
+                                                        {% for error in option_form.option_text.errors %}
+                                                            {{ error }}
+                                                        {% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="form-check">
+                                                {{ option_form.is_correct(class="form-check-input") }}
+                                                <label class="form-check-label" for="{{ option_form.is_correct.id }}">
+                                                    Mark as correct answer
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="form-text mb-3">
+                            For MCQ questions, ensure you provide at least 2 options and mark one as correct.
+                            For text/code questions, you can ignore the options section.
+                        </div>
+                    </div>
+                    
+                    <!-- Question Type Guidelines -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div id="mcqGuidelines" class="alert alert-info" style="display: none;">
+                                <h6 class="alert-heading"><i class="fas fa-list"></i> Multiple Choice Question Guidelines:</h6>
+                                <ul class="mb-0">
+                                    <li><strong>Required:</strong> Provide at least 2 options</li>
+                                    <li><strong>Required:</strong> Mark at least one option as correct</li>
+                                    <li>Make all options clear and unambiguous</li>
+                                    <li>Avoid "All of the above" or "None of the above" if possible</li>
+                                </ul>
+                            </div>
+                            
+                            <div id="codeGuidelines" class="alert alert-info" style="display: none;">
+                                <h6 class="alert-heading"><i class="fas fa-code"></i> Programming Question Guidelines:</h6>
+                                <ul class="mb-0">
+                                    <li>Clearly specify the problem statement</li>
+                                    <li>Include input format and constraints</li>
+                                    <li>Provide example input and expected output</li>
+                                    <li>Mention any specific requirements (time/space complexity, etc.)</li>
+                                </ul>
+                            </div>
+                            
+                            <div id="textGuidelines" class="alert alert-info" style="display: none;">
+                                <h6 class="alert-heading"><i class="fas fa-pen"></i> Essay/Text Question Guidelines:</h6>
+                                <ul class="mb-0">
+                                    <li>Make the question clear and specific</li>
+                                    <li>Indicate expected answer length if applicable</li>
+                                    <li>Consider listing key points to be covered</li>
+                                    <li>Provide any necessary context or background information</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-3">
+                        <button type="submit" class="btn btn-primary">Add Question</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleQuestionType() {
+    const questionType = document.getElementById('question_type').value;
+    const mcqOptions = document.getElementById('mcqOptions');
+    const helpText = document.getElementById('questionTypeHelp');
+    
+    // Hide all guidelines first
+    document.querySelectorAll('[id$="Guidelines"]').forEach(el => el.style.display = 'none');
+    
+    // Show relevant guidelines based on question type
+    if (questionType === 'mcq') {
+        mcqOptions.style.display = 'block';
+        document.getElementById('mcqGuidelines').style.display = 'block';
+        helpText.innerHTML = 'Create a multiple choice question with at least 2 options';
+    } else if (questionType === 'code') {
+        mcqOptions.style.display = 'none';
+        document.getElementById('codeGuidelines').style.display = 'block';
+        helpText.innerHTML = 'Create a programming question with clear instructions';
+    } else if (questionType === 'text') {
+        mcqOptions.style.display = 'none';
+        document.getElementById('textGuidelines').style.display = 'block';
+        helpText.innerHTML = 'Create an essay or short answer question';
+    }
+    
+    // Adjust the textarea placeholder based on question type
+    const questionTextarea = document.querySelector('#question_text');
+    if (questionType === 'code') {
+        questionTextarea.placeholder = 'Write a program that...\n\nInput Format:\n...\n\nOutput Format:\n...\n\nExample:\nInput: ...\nOutput: ...';
+    } else if (questionType === 'text') {
+        questionTextarea.placeholder = 'Write your question here. Consider including:\n- Key points to address\n- Expected answer length\n- Any specific requirements';
+    } else {
+        questionTextarea.placeholder = 'Write your question here';
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    toggleQuestionType();
+});
+</script>
+{% endblock %}

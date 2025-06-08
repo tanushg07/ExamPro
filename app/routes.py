@@ -21,7 +21,7 @@ from app.forms import (
     CodeAnswerForm, GradeAnswerForm, ExamReviewForm, ImportQuestionsForm,
     MarkAllReadForm, MarkReadForm, TakeExamForm, AddGroupExamForm
 )
-from app.notifications import notify_exam_graded, notify_new_exam, notify_new_review
+from app.notifications import notify_exam_graded, notify_new_exam, notify_new_review, notify_admins_exam_created
 from app.decorators import admin_required, teacher_required, student_required
 from app.exam_security import ExamSecurity
 
@@ -168,12 +168,11 @@ def dashboard():
             ).join(User, ExamAttempt.student_id == User.id)\
              .join(Exam, ExamAttempt.exam_id == Exam.id)\
              .filter(
-                Exam.creator_id == current_user.id,
-                ExamAttempt.is_completed == True,
+                Exam.creator_id == current_user.id,                ExamAttempt.is_completed == True,
                 ExamAttempt.submitted_at.isnot(None)
              )\
              .order_by(ExamAttempt.submitted_at.desc())\
-             .limit(10)\
+             .limit(5)\
              .all()
             
             # Format the data for template
@@ -266,8 +265,7 @@ def create_exam():
             )
             db.session.add(exam)
             db.session.commit()
-            
-            # Log exam creation
+              # Log exam creation
             ActivityLog.log_activity(
                 user_id=current_user.id,
                 action="create_exam",
@@ -282,6 +280,14 @@ def create_exam():
                 ip_address=request.remote_addr,
                 user_agent=str(request.user_agent)
             )
+            
+            # Notify admins about exam creation
+            try:
+                action_type = 'published' if exam.is_published else 'created'
+                notify_admins_exam_created(exam.id, action_type)
+            except Exception as e:
+                print(f"Error sending admin notification for exam creation: {str(e)}")
+                # Don't fail exam creation if notification fails
             
             flash('Exam created successfully!', 'success')
             return redirect(url_for('teacher.edit_exam', exam_id=exam.id))
@@ -407,14 +413,19 @@ def publish_exam(exam_id):
     # If this is a GET request or the form hasn't been confirmed yet
     if request.method == 'GET' or not request.form.get('confirm'):
         return render_template('teacher/confirm_publish.html', exam=exam, form=form)
-    
-    # If this is a confirmed POST request
+      # If this is a confirmed POST request
     was_already_published = exam.is_published
     exam.is_published = True
     db.session.commit()
     
     if not was_already_published:
         notify_new_exam(exam_id)
+        # Notify admins about exam publishing
+        try:
+            notify_admins_exam_created(exam_id, 'published')
+        except Exception as e:
+            print(f"Error sending admin notification for exam publishing: {str(e)}")
+            # Don't fail exam publishing if notification fails
     
     flash('Exam published successfully!', 'success')
     return redirect(url_for('teacher.view_exam', exam_id=exam_id))

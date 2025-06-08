@@ -35,6 +35,12 @@
                                     <i class="bi bi-play-circle-fill me-2 text-primary"></i>
                                 {% elif notification.type == 'exam_ending' %}
                                     <i class="bi bi-alarm-fill me-2 text-warning"></i>
+                                {% elif notification.type == 'teacher_exam_created' %}
+                                    <i class="bi bi-plus-circle-fill me-2 text-success"></i>
+                                {% elif notification.type == 'teacher_exam_published' %}
+                                    <i class="bi bi-broadcast me-2 text-info"></i>
+                                {% elif notification.type == 'student_exam_completed' %}
+                                    <i class="bi bi-check-square-fill me-2 text-success"></i>
                                 {% else %}
                                     <i class="bi bi-info-circle me-2 text-info"></i>
                                 {% endif %}
@@ -58,6 +64,14 @@
                             {% elif notification.type == 'new_review' %}
                                 <a href="{{ url_for('teacher.view_exam_reviews', exam_id=notification.related_id) }}" class="btn btn-sm btn-outline-primary">
                                     View Reviews
+                                </a>
+                            {% elif notification.type in ['teacher_exam_created', 'teacher_exam_published'] %}
+                                <a href="{{ url_for('teacher.view_exam', exam_id=notification.related_id) }}" class="btn btn-sm btn-outline-primary">
+                                    View Exam
+                                </a>
+                            {% elif notification.type == 'student_exam_completed' %}
+                                <a href="{{ url_for('teacher.view_exam_attempts', exam_id=notification.related_id) }}" class="btn btn-sm btn-outline-primary">
+                                    View Attempts
                                 </a>
                             {% endif %}
                               <form class="d-inline" method="post" action="{{ url_for('main.mark_read', notification_id=notification.id) }}">

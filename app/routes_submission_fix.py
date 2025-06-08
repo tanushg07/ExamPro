@@ -19,7 +19,7 @@ from app.forms import (
     CodeAnswerForm, GradeAnswerForm, ExamReviewForm, ImportQuestionsForm,
     MarkAllReadForm, MarkReadForm, TakeExamForm, AddGroupExamForm
 )
-from app.notifications import notify_exam_graded, notify_new_exam, notify_new_review
+from app.notifications import notify_exam_graded, notify_new_exam, notify_new_review, notify_admins_exam_completed
 from app.decorators import admin_required, teacher_required, student_required
 from app.exam_security import ExamSecurity
 
@@ -84,11 +84,17 @@ def handle_exam_submission(exam, attempt, request_form):
     try:
         # Save final answers first
         save_answers(request_form, attempt, is_final_submission=True)
-        
-        # Mark attempt as completed and set all timestamps
+          # Mark attempt as completed and set all timestamps
         attempt.is_completed = True
         attempt.submitted_at = submission_time
         attempt.completed_at = submission_time  # Set completion time
+        
+        # Notify admins about exam completion
+        try:
+            notify_admins_exam_completed(attempt.id)
+        except Exception as e:
+            print(f"Error sending admin notification for exam completion: {str(e)}")
+            # Continue with submission even if notification fails
         
         # Calculate and store score immediately
         try:
@@ -168,8 +174,7 @@ def save_answers(form_data, attempt, is_final_submission=False):
                 question_keys[question_id] = value
             except (ValueError, TypeError, IndexError):
                 continue
-    
-    # Process all collected questions
+      # Process all collected questions
     for question_id, value in question_keys.items():
         try:
             question = Question.query.get(question_id)
@@ -182,7 +187,7 @@ def save_answers(form_data, attempt, is_final_submission=False):
                 attempt_id=attempt.id,
                 question_id=question_id
             ).first()
-              if not answer:
+            if not answer:
                 answer = Answer(
                     attempt_id=attempt.id,
                     question_id=question_id
@@ -366,13 +371,20 @@ def take_exam(exam_id):
             return jsonify({
                 'success': False,
                 'message': 'Invalid form submission. Please refresh the page and try again.',
-                'error': 'csrf_error'
-            }), 400
+                'error': 'csrf_error'            }), 400
             
         if check_time_expired(attempt):
             attempt.is_completed = True
             attempt.submitted_at = datetime.utcnow()
             attempt.completed_at = datetime.utcnow()
+            
+            # Notify admins about exam completion (time expired)
+            try:
+                notify_admins_exam_completed(attempt.id)
+            except Exception as e:
+                print(f"Error sending admin notification for expired exam completion: {str(e)}")
+                # Continue with submission even if notification fails
+            
             try:
                 db.session.commit()
             except SQLAlchemyError:

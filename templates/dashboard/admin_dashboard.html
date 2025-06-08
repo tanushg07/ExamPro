@@ -246,6 +246,9 @@
                         <td>{% if exam.is_published %}<span class="badge bg-success">Published</span>{% else %}<span class="badge bg-warning text-dark">Draft</span>{% endif %}</td>
                         <td>{{ exam.created_at.strftime('%Y-%m-%d') }}</td>                        <td>
                             <div class="btn-group">
+                                <a href="{{ url_for('admin.edit_exam', exam_id=exam.id) }}" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </a>
                                 <form method="POST" action="{{ url_for('admin.toggle_exam_publish', exam_id=exam.id) }}" class="d-inline">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm {% if exam.is_published %}btn-outline-warning{% else %}btn-outline-success{% endif %}">

@@ -232,3 +232,90 @@ def notify_exam_deadline_approaching():
     except Exception as e:
         logger.error(f"Error in exam deadline notifications: {str(e)}")
         return 0
+
+def notify_admins_exam_created(exam_id, action_type='created'):
+    """
+    Notify all admin users when a teacher creates or publishes an exam
+    
+    Args:
+        exam_id (int): The ID of the exam that was created/published
+        action_type (str): 'created' or 'published' to specify the action
+    """
+    try:
+        exam = Exam.query.get(exam_id)
+        if not exam:
+            logger.warning(f"Exam {exam_id} not found for admin notification")
+            return
+            
+        # Get teacher information
+        teacher = User.query.get(exam.creator_id)
+        teacher_name = teacher.username if teacher else 'Unknown'
+        
+        # Get all admin users
+        admin_users = User.query.filter_by(user_type='admin').all()
+        
+        if action_type == 'published':
+            message = f"Teacher {teacher_name} published exam '{exam.title}'"
+            notification_type = 'teacher_exam_published'
+        else:
+            message = f"Teacher {teacher_name} created exam '{exam.title}'"
+            notification_type = 'teacher_exam_created'
+            
+        # Send notification to each admin
+        for admin in admin_users:
+            send_notification(
+                user_id=admin.id,
+                message=message,
+                notification_type=notification_type,
+                related_id=exam_id
+            )
+            
+        # Commit notifications
+        db.session.commit()
+        logger.info(f"Sent {len(admin_users)} admin notifications for exam {action_type}: {exam.title}")
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error sending admin notifications for exam {action_type}: {str(e)}")
+
+def notify_admins_exam_completed(attempt_id):
+    """
+    Notify all admin users when a student completes an exam
+    
+    Args:
+        attempt_id (int): The ID of the completed exam attempt
+    """
+    try:
+        attempt = ExamAttempt.query.get(attempt_id)
+        if not attempt or not attempt.is_completed:
+            logger.warning(f"Attempt {attempt_id} not found or not completed for admin notification")
+            return
+            
+        exam = attempt.exam
+        student = User.query.get(attempt.student_id)
+        
+        student_name = student.username if student else 'Unknown'
+        exam_title = exam.title if exam else 'Unknown Exam'
+        
+        # Get all admin users
+        admin_users = User.query.filter_by(user_type='admin').all()
+        
+        message = f"Student {student_name} completed exam '{exam_title}'"
+        notification_type = 'student_exam_completed'
+        
+        # Send notification to each admin
+        for admin in admin_users:
+            send_notification(
+                user_id=admin.id,
+                message=message,
+                notification_type=notification_type,
+                related_id=attempt_id
+            )
+            
+        # Commit notifications
+        db.session.commit()
+        logger.info(f"Sent {len(admin_users)} admin notifications for exam completion: {exam_title} by {student_name}")
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error sending admin notifications for exam completion: {str(e)}")
