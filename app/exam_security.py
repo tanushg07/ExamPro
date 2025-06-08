@@ -19,6 +19,8 @@ class ExamSecurity:
     @classmethod
     def initialize_monitoring(cls, attempt):
         """Initialize security monitoring for an attempt"""
+        from app.enums import VerificationStatus
+        
         attempt.environment_verified = False
         attempt.browser_fingerprint = cls._get_browser_fingerprint()
         attempt.ip_address = request.remote_addr
@@ -27,6 +29,14 @@ class ExamSecurity:
         attempt.security_events = []
         attempt.browser_events = []
         attempt.warning_events = []
+        
+        # Set initial verification status to approved for new attempts
+        attempt.verification_status = VerificationStatus.APPROVED.value
+        
+        # Initialize counters
+        attempt.warning_count = 0
+        attempt.focus_losses = 0
+        attempt.window_switches = 0
         
         # Store initial state
         session[f'exam_security_{attempt.id}'] = {

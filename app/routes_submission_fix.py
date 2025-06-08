@@ -21,6 +21,7 @@ from app.forms import (
 )
 from app.notifications import notify_exam_graded, notify_new_exam, notify_new_review
 from app.decorators import admin_required, teacher_required, student_required
+from app.exam_security import ExamSecurity
 
 # Create blueprints for organization
 main_bp = Blueprint('main', __name__)
@@ -181,8 +182,7 @@ def save_answers(form_data, attempt, is_final_submission=False):
                 attempt_id=attempt.id,
                 question_id=question_id
             ).first()
-            
-            if not answer:
+              if not answer:
                 answer = Answer(
                     attempt_id=attempt.id,
                     question_id=question_id
@@ -194,7 +194,8 @@ def save_answers(form_data, attempt, is_final_submission=False):
                 value = form_data.get(answer_key)
                 if value is None:
                     continue
-              if question.question_type == 'mcq':
+            
+            if question.question_type == 'mcq':
                 try:
                     option_id = int(value)
                     option = QuestionOption.query.filter_by(
@@ -329,8 +330,7 @@ def take_exam(exam_id):
     if existing_attempt:
         flash('You have already completed this exam.', 'info')
         return redirect(url_for('student.view_result', attempt_id=existing_attempt.id))
-    
-    # Get or create an attempt
+      # Get or create an attempt
     attempt = ExamAttempt.query.filter_by(
         student_id=current_user.id,
         exam_id=exam_id,
@@ -344,6 +344,11 @@ def take_exam(exam_id):
             started_at=datetime.utcnow()
         )
         db.session.add(attempt)
+        db.session.flush()  # Get the attempt ID before initializing security
+        
+        # Initialize security monitoring with browser info, IP, etc.
+        ExamSecurity.initialize_monitoring(attempt)
+        
         try:
             db.session.commit()
         except SQLAlchemyError as e:
