@@ -9,7 +9,7 @@ from .models import (
     Answer, ExamReview, ActivityLog, Notification, SecurityLog, 
     GroupMembership, Group
 )
-from .forms import UserEditForm, CreateUserForm, ExamForm
+from .forms import UserEditForm, CreateUserForm, ExamForm, QuestionForm
 from werkzeug.security import generate_password_hash
 import json
 from datetime import datetime
@@ -506,39 +506,145 @@ def view_all_activities():
 @admin_required
 def edit_exam(exam_id):
     exam = Exam.query.get_or_404(exam_id)
+    questions = Question.query.filter_by(exam_id=exam_id).order_by(Question.order).all()
+    
     form = ExamForm(obj=exam)
+    # Populate group choices - admins can assign to any group
+    groups = Group.query.all()
+    form.group_id.choices = [(g.id, g.name) for g in groups]
     
-    if form.validate_on_submit():
-        try:
-            exam.title = form.title.data
-            exam.description = form.description.data
-            exam.time_limit_minutes = form.time_limit_minutes.data
-            exam.is_published = form.is_published.data
-            
-            db.session.commit()
-            
-            # Log exam update for security monitoring
-            ActivityLog.log_activity(
-                user_id=current_user.id,
-                action="update_exam",
-                category="exam",
-                details={
-                    'exam_id': exam.id,
-                    'title': exam.title,
-                    'is_published': exam.is_published
-                },
-                ip_address=request.remote_addr,
-                user_agent=str(request.user_agent)
-            )
-            
-            flash('Exam updated successfully!', 'success')
-            return redirect(url_for('main.admin_dashboard'))
-        except SQLAlchemyError as e:
-            db.session.rollback()
-            current_app.logger.error(f'Error updating exam {exam_id}: {str(e)}')
-            flash(sanitize_database_error(e), 'danger')
-        except Exception as e:
-            db.session.rollback()
-            flash(log_and_sanitize_error(e, "updating exam", current_user.id, f"exam_id: {exam_id}"), 'danger')
+    question_form = QuestionForm()
     
-    return render_template('admin/edit_exam.html', form=form, exam=exam)
+    if request.method == 'POST':
+        if 'update_settings' in request.form:
+            if form.validate_on_submit():
+                try:
+                    exam.title = form.title.data
+                    exam.description = form.description.data
+                    exam.time_limit_minutes = form.time_limit_minutes.data
+                    exam.group_id = form.group_id.data
+                    exam.is_published = form.is_published.data
+                    
+                    db.session.commit()
+                    
+                    # Log exam update for security monitoring
+                    ActivityLog.log_activity(
+                        user_id=current_user.id,
+                        action="update_exam",
+                        category="exam",
+                        details={
+                            'exam_id': exam.id,
+                            'title': exam.title,
+                            'is_published': exam.is_published
+                        },
+                        ip_address=request.remote_addr,
+                        user_agent=str(request.user_agent)
+                    )
+                    
+                    flash('Exam updated successfully!', 'success')
+                    return redirect(url_for('admin.edit_exam', exam_id=exam_id))
+                except SQLAlchemyError as e:
+                    db.session.rollback()
+                    current_app.logger.error(f'Error updating exam {exam_id}: {str(e)}')
+                    flash(sanitize_database_error(e), 'danger')
+                except Exception as e:
+                    db.session.rollback()
+                    flash(log_and_sanitize_error(e, "updating exam", current_user.id, f"exam_id: {exam_id}"), 'danger')
+        
+        elif 'add_question' in request.form:
+            if question_form.validate_on_submit():
+                try:
+                    question = Question(
+                        exam_id=exam_id,
+                        question_text=question_form.question_text.data,
+                        question_type=question_form.question_type.data,
+                        points=question_form.points.data,
+                        order=len(questions) + 1
+                    )
+                    db.session.add(question)
+                    
+                    if question.question_type == 'mcq':
+                        option_count = 0
+                        for option_form in question_form.options:
+                            if option_form.option_text.data:
+                                option = QuestionOption(
+                                    question=question,
+                                    option_text=option_form.option_text.data,
+                                    is_correct=option_form.is_correct.data
+                                )
+                                db.session.add(option)
+                                option_count += 1
+                    
+                    db.session.commit()
+                    
+                    # Log question addition
+                    ActivityLog.log_activity(
+                        user_id=current_user.id,
+                        action="add_question",
+                        category="exam",
+                        details={
+                            'exam_id': exam.id,
+                            'question_type': question.question_type,
+                            'points': question.points
+                        },
+                        ip_address=request.remote_addr,
+                        user_agent=str(request.user_agent)
+                    )
+                    
+                    flash('Question added successfully!', 'success')
+                    return redirect(url_for('admin.edit_exam', exam_id=exam_id))
+                except SQLAlchemyError as e:
+                    db.session.rollback()
+                    current_app.logger.error(f'Error adding question to exam {exam_id}: {str(e)}')
+                    flash(sanitize_database_error(e), 'danger')
+                except Exception as e:
+                    db.session.rollback()
+                    flash(log_and_sanitize_error(e, "adding question", current_user.id, f"exam_id: {exam_id}"), 'danger')
+    
+    return render_template('admin/edit_exam.html', 
+                         form=form, 
+                         exam=exam, 
+                         questions=questions,
+                         question_form=question_form)
+
+
+@admin_bp.route('/exams/<int:exam_id>/questions/<int:question_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_question(exam_id, question_id):
+    """Admin route to delete a question from an exam"""
+    exam = Exam.query.get_or_404(exam_id)
+    question = Question.query.get_or_404(question_id)
+    
+    # Verify question belongs to the exam
+    if question.exam_id != exam_id:
+        abort(403)
+    
+    try:
+        db.session.delete(question)
+        db.session.commit()
+        
+        # Log question deletion for security monitoring
+        ActivityLog.log_activity(
+            user_id=current_user.id,
+            action="delete_question",
+            category="exam",
+            details={
+                'exam_id': exam_id,
+                'question_id': question_id,
+                'question_type': question.question_type
+            },
+            ip_address=request.remote_addr,
+            user_agent=str(request.user_agent)
+        )
+        
+        flash('Question deleted successfully!', 'success')
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error deleting question {question_id}: {str(e)}')
+        flash(sanitize_database_error(e), 'danger')
+    except Exception as e:
+        db.session.rollback()
+        flash(log_and_sanitize_error(e, "deleting question", current_user.id, f"question_id: {question_id}"), 'danger')
+    
+    return redirect(url_for('admin.edit_exam', exam_id=exam_id))
