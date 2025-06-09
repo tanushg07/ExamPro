@@ -829,15 +829,105 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('confirmLeave').addEventListener('click', async function() {
         leaveExamModal.hide();
         await handleLeave();
-    });
-
-    // Setup retry button
+    });    // Setup retry button
     retryButton.addEventListener('click', function() {
         errorModal.hide();
         if (isSubmitting) {
             submitExam();
         } else {
             saveAnswers();
+        }
+    });
+
+    // Setup fullscreen functionality
+    const fullscreenToggle = document.getElementById('fullscreen-toggle');
+    const examContainer = document.getElementById('exam-container');
+    let isFullscreen = false;
+
+    fullscreenToggle.addEventListener('click', function() {
+        if (!isFullscreen) {
+            // Enter fullscreen
+            if (examContainer.requestFullscreen) {
+                examContainer.requestFullscreen();
+            } else if (examContainer.webkitRequestFullscreen) {
+                examContainer.webkitRequestFullscreen();
+            } else if (examContainer.mozRequestFullScreen) {
+                examContainer.mozRequestFullScreen();
+            } else if (examContainer.msRequestFullscreen) {
+                examContainer.msRequestFullscreen();
+            } else {
+                // Fallback: Use CSS fullscreen if native API not available
+                examContainer.classList.add('fullscreen');
+                updateFullscreenButton(true);
+            }
+        } else {
+            // Exit fullscreen
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            } else {
+                // Fallback: Remove CSS fullscreen
+                examContainer.classList.remove('fullscreen');
+                updateFullscreenButton(false);
+            }
+        }
+    });
+
+    // Listen for fullscreen change events
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    function handleFullscreenChange() {
+        const isNowFullscreen = !!(document.fullscreenElement || 
+                                  document.webkitFullscreenElement || 
+                                  document.mozFullScreenElement || 
+                                  document.msFullscreenElement);
+        
+        if (isNowFullscreen) {
+            examContainer.classList.add('fullscreen');
+        } else {
+            examContainer.classList.remove('fullscreen');
+        }
+        updateFullscreenButton(isNowFullscreen);
+    }
+
+    function updateFullscreenButton(fullscreen) {
+        isFullscreen = fullscreen;
+        if (fullscreen) {
+            fullscreenToggle.innerHTML = '<i class="fas fa-compress"></i> Exit Fullscreen';
+            fullscreenToggle.classList.remove('btn-outline-primary');
+            fullscreenToggle.classList.add('btn-primary');
+        } else {
+            fullscreenToggle.innerHTML = '<i class="fas fa-expand"></i> Enter Fullscreen';
+            fullscreenToggle.classList.remove('btn-primary');
+            fullscreenToggle.classList.add('btn-outline-primary');
+        }
+    }
+
+    // Prevent exiting fullscreen with Escape key during exam
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && isFullscreen) {
+            e.preventDefault();
+            // Show warning message
+            const warning = document.createElement('div');
+            warning.className = 'fullscreen-warning';
+            warning.innerHTML = '<strong>⚠️ Fullscreen Mode Required</strong><br>Please stay in fullscreen mode during the exam.';
+            document.body.appendChild(warning);
+            
+            setTimeout(() => {
+                if (warning.parentNode) {
+                    warning.parentNode.removeChild(warning);
+                }
+            }, 3000);
+            
+            return false;
         }
     });
     
