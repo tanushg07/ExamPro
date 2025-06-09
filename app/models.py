@@ -55,8 +55,7 @@ class User(UserMixin, db.Model):
             .join(Exam, ExamAttempt.exam_id == Exam.id)\
             .filter(Exam.creator_id == self.id,
                    ExamAttempt.is_completed == True,
-                   ExamAttempt.is_graded == False)\
-            .count()
+                   ExamAttempt.is_graded == False).count()
     
     def set_password(self, password):
         # Using PBKDF2-SHA256 as specified
@@ -73,6 +72,10 @@ class User(UserMixin, db.Model):
     
     def is_admin(self):
         return self.user_type == 'admin'
+    
+    def is_super_admin(self):
+        """Check if user is a super admin - only user ID 1 or specific admin accounts"""
+        return self.user_type == 'admin' and (self.id == 1 or self.username == 'superadmin')
 
 
 class Exam(db.Model):

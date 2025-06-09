@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta
 import csv
+import bleach
 from flask import (
     Blueprint, render_template, redirect, url_for,
-    flash, request, jsonify, abort, session, make_response
+    flash, request, jsonify, abort, session, make_response, current_app
 )
 from flask_login import login_required, current_user
 from sqlalchemy.exc import SQLAlchemyError
@@ -12,6 +13,7 @@ from sqlalchemy.orm import joinedload
 from functools import wraps
 import logging
 
+from app.security import log_and_sanitize_error, sanitize_database_error
 from app.models import (
     db, User, Exam, Question, QuestionOption, ExamAttempt, 
     Answer, ExamReview, Notification, Group, ActivityLog
@@ -34,113 +36,264 @@ logger = logging.getLogger(__name__)
 
 # Helper function to check if exam time has expired
 def check_time_expired(attempt):
-    """Check if the exam time has expired for an attempt."""
+    """Check if the exam time has expired for an attempt with proper validation."""
     if not attempt or not attempt.started_at or not attempt.exam:
         return True
     
-    # Use the correct field for duration
-    if not getattr(attempt.exam, 'time_limit_minutes', None):  # If no duration set, exam doesn't expire
-        return False
+    # Validate started_at timestamp is not in the future
+    if attempt.started_at > datetime.utcnow():
+        logger.warning(f"Suspicious started_at timestamp for attempt {attempt.id}: {attempt.started_at}")
+        return True
+    
+    # Use the correct field for duration and validate it exists
+    if not hasattr(attempt.exam, 'time_limit_minutes') or not attempt.exam.time_limit_minutes:
+        return False  # If no duration set, exam doesn't expire
+    
+    # Validate time_limit_minutes is reasonable (not negative or excessively large)
+    if attempt.exam.time_limit_minutes <= 0 or attempt.exam.time_limit_minutes > 1440:  # Max 24 hours
+        logger.warning(f"Invalid time_limit_minutes for exam {attempt.exam.id}: {attempt.exam.time_limit_minutes}")
+        return True
     
     time_limit = attempt.started_at + timedelta(minutes=attempt.exam.time_limit_minutes)
-    return datetime.utcnow() > time_limit
+    current_time = datetime.utcnow()
+    
+    # Add additional validation: check if time difference is reasonable
+    time_elapsed = current_time - attempt.started_at
+    if time_elapsed.total_seconds() < 0:
+        logger.warning(f"Negative time elapsed for attempt {attempt.id}")
+        return True
+    
+    return current_time > time_limit
 
 def validate_submission_time(attempt, submission_time):
-    """Validate that a submission is being made within the time limit."""
+    """Validate that a submission is being made within the time limit with security checks."""
     if not attempt or not attempt.started_at or not attempt.exam:
+        return False
+        
+    # Validate submission_time is not in the future
+    current_time = datetime.utcnow()
+    if submission_time > current_time + timedelta(minutes=1):  # 1 minute tolerance for clock skew
+        logger.warning(f"Future submission time detected for attempt {attempt.id}: {submission_time}")
+        return False
+        
+    # Validate submission_time is after started_at
+    if submission_time < attempt.started_at:
+        logger.warning(f"Submission time before start time for attempt {attempt.id}")
         return False
         
     if not hasattr(attempt.exam, 'time_limit_minutes') or not attempt.exam.time_limit_minutes:
-
-  # If no duration set, submission is always valid
+        # If no duration set, submission is valid as long as it's reasonable
+        time_elapsed = submission_time - attempt.started_at
+        if time_elapsed.total_seconds() > 86400:  # More than 24 hours
+            logger.warning(f"Excessively long exam duration for attempt {attempt.id}")
+            return False
         return True
         
+    # Validate time_limit_minutes is reasonable
+    if attempt.exam.time_limit_minutes <= 0 or attempt.exam.time_limit_minutes > 1440:
+        logger.warning(f"Invalid time_limit_minutes for exam {attempt.exam.id}")
+        return False
+        
     time_limit = attempt.started_at + timedelta(minutes=attempt.exam.time_limit_minutes)
-
     grace_period = timedelta(minutes=1)  # 1 minute grace period for network delays
     
     return submission_time <= (time_limit + grace_period)
 
 
-# Improved save_answers function
+# Improved save_answers function with proper transaction handling
 def save_answers(form_data, attempt, is_final_submission=False):
     """
-    Save or update answers for an exam attempt.
+    Save or update answers for an exam attempt with atomic transaction handling.
     If is_final_submission is True, also update submitted_at timestamp.
     """
-    saved_question_ids = set()
-    
-    # First, find all answer keys (both question_id and answer_X format)
-    question_keys = {}
-    for key, value in form_data.items():
-        if key.startswith('question_id'):
-            try:
-                question_id = int(value)
-                question_keys[question_id] = None
-            except (ValueError, TypeError):
-                continue
+    # Use explicit transaction with proper isolation
+    try:
+        # Begin explicit transaction
+        db.session.begin()
         
-        elif key.startswith('answer_'):
-            try:
-                question_id = int(key.split('_')[1])
-                question_keys[question_id] = value
-            except (ValueError, TypeError, IndexError):
-                continue
-      # Process all collected questions
-    for question_id, value in question_keys.items():
-        try:
-            question = Question.query.get(question_id)
-            if not question or question.exam_id != attempt.exam_id:
-                continue
-                
-            saved_question_ids.add(question_id)
-            
-            answer = Answer.query.filter_by(
-                attempt_id=attempt.id,
-                question_id=question_id
-            ).first()
-            
-            if not answer:
-                answer = Answer(
-                    attempt_id=attempt.id,
-                    question_id=question_id
-                )
-                db.session.add(answer)
-            
-            if value is None:
-                answer_key = f'answer_{question_id}'
-                value = form_data.get(answer_key)
-                if value is None:
-                    continue
-                
-            if question.question_type == 'mcq':
+        saved_question_ids = set()
+        
+        # First, find all answer keys (both question_id and answer_X format)
+        question_keys = {}
+        for key, value in form_data.items():
+            if key.startswith('question_id'):
                 try:
-                    option_id = int(value)
-                    option = QuestionOption.query.filter_by(
-                        id=option_id,
-                        question_id=question_id
-                    ).first()
-                    if option:
-                        answer.selected_option_id = option_id
-                        # Auto-grade MCQ questions  
-                        answer.is_correct = option.is_correct
-                        # Set points_awarded for MCQ questions (full points if correct, 0 if incorrect)
-                        answer.points_awarded = question.points if option.is_correct else 0
+                    question_id = int(value)
+                    question_keys[question_id] = None
                 except (ValueError, TypeError):
                     continue
-                    
-            elif question.question_type in ['text', 'code']:
-                answer.text_answer = value
-                if question.question_type == 'code':
-                    answer.code_answer = value
             
-            db.session.flush()
+            elif key.startswith('answer_'):
+                try:
+                    question_id = int(key.split('_')[1])
+                    question_keys[question_id] = value
+                except (ValueError, TypeError, IndexError):
+                    continue
+        
+        # Process all collected questions atomically
+        for question_id, value in question_keys.items():
+            try:
+                # Verify question belongs to this exam
+                question = Question.query.filter_by(
+                    id=question_id, 
+                    exam_id=attempt.exam_id
+                ).first()
                 
-        except Exception:
-            db.session.rollback()
-            continue
+                if not question:
+                    continue
+                    
+                saved_question_ids.add(question_id)
+                  # Use SELECT FOR UPDATE to prevent race conditions
+                answer = Answer.query.filter_by(
+                    attempt_id=attempt.id,
+                    question_id=question_id
+                ).with_for_update().first()
+                
+                if not answer:
+                    answer = Answer(
+                        attempt_id=attempt.id,
+                        question_id=question_id
+                    )
+                    db.session.add(answer)
+                
+                if value is None:
+                    answer_key = f'answer_{question_id}'
+                    value = form_data.get(answer_key)
+                    if value is None:
+                        continue
+                    
+                if question.question_type == 'mcq':
+                    try:
+                        option_id = int(value)
+                        # Verify option belongs to this question
+                        option = QuestionOption.query.filter_by(
+                            id=option_id,
+                            question_id=question_id
+                        ).first()
+                        if option:
+                            answer.selected_option_id = option_id
+                            # Auto-grade MCQ questions  
+                            answer.is_correct = option.is_correct
+                            # Set points_awarded for MCQ questions (full points if correct, 0 if incorrect)                            answer.points_awarded = question.points if option.is_correct else 0
+                    except (ValueError, TypeError):
+                        continue
+                
+                elif question.question_type in ['text', 'code']:
+                    # Sanitize input to prevent XSS
+                    if value:
+                        value = bleach.clean(
+                            value,
+                            tags=['p', 'b', 'i', 'u', 'ul', 'ol', 'li', 'br', 'pre', 'code'],
+                            attributes={'pre': ['class'], 'code': ['class']},
+                            strip=True
+                        )
+                    answer.text_answer = value
+                    if question.question_type == 'code':
+                        answer.code_answer = value
+                
+                db.session.flush()
+                    
+            except Exception as e:
+                logger.error(f"Error saving answer for question {question_id}: {str(e)}")
+                continue
+        
+        # Commit the transaction
+        db.session.commit()
+        return True
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error in save_answers: {str(e)}")
+        return False
+
+
+def validate_answer_input(question, value, attempt):
+    """
+    Validate answer input with comprehensive security checks
+    """
+    if not question or not attempt:
+        return False, "Invalid question or attempt"
     
-    return True
+    # Verify question belongs to the attempt's exam
+    if question.exam_id != attempt.exam_id:
+        logger.warning(f"Question {question.id} doesn't belong to exam {attempt.exam_id}")
+        return False, "Question doesn't belong to this exam"
+    
+    # Verify attempt belongs to current user
+    if attempt.student_id != current_user.id:
+        logger.warning(f"Attempt {attempt.id} doesn't belong to user {current_user.id}")
+        return False, "Unauthorized attempt access"
+    
+    # Check if exam is still active
+    if check_time_expired(attempt):
+        return False, "Exam time has expired"
+    
+    # Validate based on question type
+    if question.question_type == 'mcq':
+        if not value:
+            return True, None  # Empty value is allowed
+        
+        try:
+            option_id = int(value)
+            # Verify option exists and belongs to this question
+            option = QuestionOption.query.filter_by(
+                id=option_id,
+                question_id=question.id
+            ).first()
+            
+            if not option:
+                return False, "Invalid option selected"
+                
+            return True, option_id
+            
+        except (ValueError, TypeError):
+            return False, "Invalid option format"
+    
+    elif question.question_type in ['text', 'code']:
+        if not value:
+            return True, None  # Empty value is allowed
+        
+        # Length validation
+        max_length = 10000  # 10KB max
+        if len(str(value)) > max_length:
+            return False, f"Answer too long (max {max_length} characters)"
+        
+        # Content validation for suspicious patterns
+        import re
+        suspicious_patterns = [
+            r'<script[^>]*>',
+            r'javascript:',
+            r'vbscript:',
+            r'onload\s*=',
+            r'onerror\s*=',            r'<iframe[^>]*>',
+        ]
+        
+        for pattern in suspicious_patterns:
+            if re.search(pattern, str(value), re.IGNORECASE):
+                logger.warning(f"Suspicious content detected in answer for question {question.id}")
+                return False, "Invalid content detected"
+        
+        # Sanitize input
+        if question.question_type == 'code':
+            # More permissive for code answers but still safe
+            clean_value = bleach.clean(
+                value,
+                tags=['p', 'b', 'i', 'u', 'ul', 'ol', 'li', 'br', 'pre', 'code', 'span', 'div'],
+                attributes={'pre': ['class'], 'code': ['class'], 'span': ['class'], 'div': ['class']},
+                strip=True
+            )
+        else:
+            # Text answers - more restrictive
+            clean_value = bleach.clean(
+                value,
+                tags=['p', 'b', 'i', 'u', 'ul', 'ol', 'li', 'br'],
+                attributes={},
+                strip=True
+            )
+        
+        return True, clean_value
+    
+    return False, "Unsupported question type"
 
 
 # Main routes
@@ -589,10 +742,11 @@ def grade_attempt(attempt_id):
                     flash('Grading progress has been saved. Some answers still need grading.', 'info')
                 
                 return redirect(url_for('main.dashboard'))
-
+            
             except Exception as e:
                 db.session.rollback()
-                flash('Error saving grades: ' + str(e), 'danger')
+                current_app.logger.error(f'Error saving grades: {str(e)}')
+                flash(log_and_sanitize_error(e, "saving grades", current_user.id, f"attempt_id: {attempt_id}"), 'danger')
         else:
             flash('Invalid form submission. Please try again.', 'danger')
 
@@ -992,8 +1146,7 @@ def import_questions(exam_id):
                     for i, option_text in enumerate(options):
                         option = QuestionOption(
                             question_id=question.id,
-                            option_text=option_text.strip(),
-                            is_correct=(i == correct_answer)
+                            option_text=option_text.strip(),                            is_correct=(i == correct_answer)
                         )
                         db.session.add(option)
                 
@@ -1005,7 +1158,8 @@ def import_questions(exam_id):
             
         except Exception as e:
             db.session.rollback()
-            flash(f'Error importing questions: {str(e)}', 'danger')
+            current_app.logger.error(f'Error importing questions: {str(e)}')
+            flash(log_and_sanitize_error(e, "importing questions", current_user.id, f"exam_id: {exam_id}"), 'danger')
     
     return render_template('teacher/import_questions.html', form=form, exam=exam)
 
@@ -1853,9 +2007,11 @@ def review_exam(exam_id):
             notify_new_review(review.id, exam_id)  # Pass both review.id and exam_id
             flash('Your review has been submitted successfully!', 'success')
             return redirect(url_for('student.view_result', attempt_id=attempt.id))
+        
         except Exception as e:
             db.session.rollback()
-            flash(f'Error submitting review: {str(e)}', 'danger')
+            current_app.logger.error(f'Error submitting review: {str(e)}')
+            flash(log_and_sanitize_error(e, "submitting review", current_user.id, f"exam_id: {exam_id}"), 'danger')
     return render_template(
         'student/review_exam.html',
         exam=exam,

@@ -83,7 +83,6 @@ def edit_user(user_id):
     
     return render_template('admin/edit_user.html', form=form, user=user)
 
-
 @admin_bp.route('/users/<int:user_id>/delete', methods=['POST'])
 @login_required
 @admin_required
@@ -186,8 +185,7 @@ def delete_user(user_id):
         
         # 10. Delete activity logs for this user
         ActivityLog.query.filter_by(user_id=user.id).delete()
-        
-        # 11. Finally, delete the user
+          # 11. Finally, delete the user
         db.session.delete(user)
         db.session.commit()
         flash('User deleted successfully!', 'success')
@@ -202,7 +200,6 @@ def delete_user(user_id):
         flash(log_and_sanitize_error(e, "deleting user", current_user.id, f"user_id: {user_id}"), 'danger')
     
     return redirect(url_for('main.admin_dashboard'))
-
 
 @admin_bp.route('/exams/<int:exam_id>/delete', methods=['POST'])
 @login_required
@@ -252,8 +249,7 @@ def delete_exam(exam_id):
                     'reviews': reviews_count,
                     'questions': questions_count
                 }
-            },
-            ip_address=request.remote_addr,
+            },            ip_address=request.remote_addr,
             user_agent=str(request.user_agent)
         )
         
@@ -268,14 +264,12 @@ def delete_exam(exam_id):
     
     return redirect(url_for('main.admin_dashboard'))
 
-
 @admin_bp.route('/exams/<int:exam_id>/toggle-publish', methods=['POST'])
 @login_required
 @admin_required
 def toggle_exam_publish(exam_id):
     exam = Exam.query.get_or_404(exam_id)
-    
-    try:
+      try:
         exam.is_published = not exam.is_published
         db.session.commit()
         status = 'published' if exam.is_published else 'unpublished'
@@ -289,7 +283,6 @@ def toggle_exam_publish(exam_id):
         flash(log_and_sanitize_error(e, "updating exam status", current_user.id, f"exam_id: {exam_id}"), 'danger')
     
     return redirect(url_for('main.admin_dashboard'))
-
 
 @admin_bp.route('/users/create', methods=['GET', 'POST'])
 @login_required
@@ -347,17 +340,11 @@ def create_user():
     
     return render_template('admin/create_user.html', form=form)
 
-
 @admin_bp.route('/exams/create', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def create_exam():
     form = ExamForm()
-    
-    # Populate class choices for the form - admins can assign to any group
-    groups = Group.query.all()
-    form.group_id.choices = [(g.id, g.name) for g in groups]
-    
     if form.validate_on_submit():
         try:
             exam = Exam(
@@ -365,40 +352,17 @@ def create_exam():
                 description=form.description.data,
                 time_limit_minutes=form.time_limit_minutes.data,
                 creator_id=current_user.id,
-                is_published=form.is_published.data,
-                group_id=form.group_id.data
+                is_published=form.is_published.data
             )
             db.session.add(exam)
             db.session.commit()
-            
-            # Log exam creation
-            ActivityLog.log_activity(
-                user_id=current_user.id,
-                action="create_exam",
-                category="exam",
-                details={
-                    'exam_id': exam.id,
-                    'title': exam.title,
-                    'time_limit': exam.time_limit_minutes,
-                    'group_id': exam.group_id,
-                    'is_published': exam.is_published
-                },
-                ip_address=request.remote_addr,
-                user_agent=str(request.user_agent)
-            )
-            
             flash('Exam created successfully!', 'success')
-            return redirect(url_for('admin.edit_exam', exam_id=exam.id))
+            return redirect(url_for('main.admin_dashboard'))
         except SQLAlchemyError as e:
             db.session.rollback()
-            current_app.logger.error(f'Error creating exam: {str(e)}')
-            flash(sanitize_database_error(e), 'danger')
-        except Exception as e:
-            db.session.rollback()
-            flash(log_and_sanitize_error(e, "creating exam", current_user.id), 'danger')
+            flash('Error creating exam.', 'danger')
     
     return render_template('admin/create_exam.html', form=form)
-
 
 @admin_bp.route('/settings', methods=['GET', 'POST'])
 @login_required
@@ -413,11 +377,9 @@ def system_settings():
             
             flash('Settings updated successfully!', 'success')
         except Exception as e:
-            current_app.logger.error(f'Error updating settings: {str(e)}')
-            flash(log_and_sanitize_error(e, "updating settings", current_user.id), 'danger')
+            flash('Error updating settings: ' + str(e), 'danger')
     
     return render_template('admin/settings.html')
-
 
 @admin_bp.route('/send-mass-notification', methods=['POST'])
 @login_required
@@ -468,11 +430,10 @@ def send_mass_notification():
             flash('No notifications were sent. Please try again.', 'warning')
             
     except Exception as e:
+        flash(f'Error processing request: {str(e)}', 'danger')
         current_app.logger.error(f'Request error: {str(e)}')
-        flash(log_and_sanitize_error(e, "sending mass notification", current_user.id), 'danger')
     
     return redirect(url_for('main.admin_dashboard'))
-
 
 @admin_bp.route('/activities', methods=['GET'])
 @login_required
@@ -499,46 +460,3 @@ def view_all_activities():
         'admin/all_activities.html',
         activities=activities
     )
-
-
-@admin_bp.route('/exams/<int:exam_id>/edit', methods=['GET', 'POST'])
-@login_required
-@admin_required
-def edit_exam(exam_id):
-    exam = Exam.query.get_or_404(exam_id)
-    form = ExamForm(obj=exam)
-    
-    if form.validate_on_submit():
-        try:
-            exam.title = form.title.data
-            exam.description = form.description.data
-            exam.time_limit_minutes = form.time_limit_minutes.data
-            exam.is_published = form.is_published.data
-            
-            db.session.commit()
-            
-            # Log exam update for security monitoring
-            ActivityLog.log_activity(
-                user_id=current_user.id,
-                action="update_exam",
-                category="exam",
-                details={
-                    'exam_id': exam.id,
-                    'title': exam.title,
-                    'is_published': exam.is_published
-                },
-                ip_address=request.remote_addr,
-                user_agent=str(request.user_agent)
-            )
-            
-            flash('Exam updated successfully!', 'success')
-            return redirect(url_for('main.admin_dashboard'))
-        except SQLAlchemyError as e:
-            db.session.rollback()
-            current_app.logger.error(f'Error updating exam {exam_id}: {str(e)}')
-            flash(sanitize_database_error(e), 'danger')
-        except Exception as e:
-            db.session.rollback()
-            flash(log_and_sanitize_error(e, "updating exam", current_user.id, f"exam_id: {exam_id}"), 'danger')
-    
-    return render_template('admin/edit_exam.html', form=form, exam=exam)

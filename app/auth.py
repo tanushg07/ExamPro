@@ -32,6 +32,10 @@ def login():
             # User authentication successful
             login_user(user, remember=form.remember_me.data)
             
+            # Regenerate session after successful login to prevent session fixation
+            from app.security import regenerate_session
+            regenerate_session()
+            
             # Reset rate limiting for this IP on successful login
             reset_login_attempts(request.remote_addr)
             

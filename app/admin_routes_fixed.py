@@ -353,11 +353,6 @@ def create_user():
 @admin_required
 def create_exam():
     form = ExamForm()
-    
-    # Populate class choices for the form - admins can assign to any group
-    groups = Group.query.all()
-    form.group_id.choices = [(g.id, g.name) for g in groups]
-    
     if form.validate_on_submit():
         try:
             exam = Exam(
@@ -365,30 +360,12 @@ def create_exam():
                 description=form.description.data,
                 time_limit_minutes=form.time_limit_minutes.data,
                 creator_id=current_user.id,
-                is_published=form.is_published.data,
-                group_id=form.group_id.data
+                is_published=form.is_published.data
             )
             db.session.add(exam)
             db.session.commit()
-            
-            # Log exam creation
-            ActivityLog.log_activity(
-                user_id=current_user.id,
-                action="create_exam",
-                category="exam",
-                details={
-                    'exam_id': exam.id,
-                    'title': exam.title,
-                    'time_limit': exam.time_limit_minutes,
-                    'group_id': exam.group_id,
-                    'is_published': exam.is_published
-                },
-                ip_address=request.remote_addr,
-                user_agent=str(request.user_agent)
-            )
-            
             flash('Exam created successfully!', 'success')
-            return redirect(url_for('admin.edit_exam', exam_id=exam.id))
+            return redirect(url_for('main.admin_dashboard'))
         except SQLAlchemyError as e:
             db.session.rollback()
             current_app.logger.error(f'Error creating exam: {str(e)}')
@@ -499,46 +476,3 @@ def view_all_activities():
         'admin/all_activities.html',
         activities=activities
     )
-
-
-@admin_bp.route('/exams/<int:exam_id>/edit', methods=['GET', 'POST'])
-@login_required
-@admin_required
-def edit_exam(exam_id):
-    exam = Exam.query.get_or_404(exam_id)
-    form = ExamForm(obj=exam)
-    
-    if form.validate_on_submit():
-        try:
-            exam.title = form.title.data
-            exam.description = form.description.data
-            exam.time_limit_minutes = form.time_limit_minutes.data
-            exam.is_published = form.is_published.data
-            
-            db.session.commit()
-            
-            # Log exam update for security monitoring
-            ActivityLog.log_activity(
-                user_id=current_user.id,
-                action="update_exam",
-                category="exam",
-                details={
-                    'exam_id': exam.id,
-                    'title': exam.title,
-                    'is_published': exam.is_published
-                },
-                ip_address=request.remote_addr,
-                user_agent=str(request.user_agent)
-            )
-            
-            flash('Exam updated successfully!', 'success')
-            return redirect(url_for('main.admin_dashboard'))
-        except SQLAlchemyError as e:
-            db.session.rollback()
-            current_app.logger.error(f'Error updating exam {exam_id}: {str(e)}')
-            flash(sanitize_database_error(e), 'danger')
-        except Exception as e:
-            db.session.rollback()
-            flash(log_and_sanitize_error(e, "updating exam", current_user.id, f"exam_id: {exam_id}"), 'danger')
-    
-    return render_template('admin/edit_exam.html', form=form, exam=exam)

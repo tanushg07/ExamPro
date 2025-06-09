@@ -16,6 +16,67 @@ RATE_LIMIT_WINDOW = 300
 # Maximum number of failed attempts allowed in the time window
 MAX_ATTEMPTS = 5
 
+def log_and_sanitize_error(error, action, user_id=None, details=None):
+    """
+    Log detailed error information securely and return a sanitized message for users.
+    This prevents information disclosure through error messages.
+    
+    Args:
+        error: The original exception object
+        action: Description of the action being performed
+        user_id: Optional user ID for logging
+        details: Optional additional context
+    
+    Returns:
+        str: Sanitized error message safe to display to users
+    """
+    import uuid
+    error_id = str(uuid.uuid4())[:8]
+    
+    # Log detailed error information securely
+    current_app.logger.error(
+        f"Error ID {error_id}: {action} failed. "
+        f"User: {user_id or 'anonymous'}, "
+        f"Error: {str(error)}, "
+        f"Details: {details or 'none'}, "
+        f"IP: {request.remote_addr}, "
+        f"User-Agent: {request.user_agent}"
+    )
+    
+    # Return sanitized message with error ID for support reference
+    return f"An error occurred while {action}. Please try again or contact support (Error ID: {error_id})."
+
+def sanitize_database_error(error):
+    """
+    Sanitize database error messages to prevent information disclosure.
+    
+    Args:
+        error: SQLAlchemy error object
+        
+    Returns:
+        str: Safe error message for user display
+    """
+    error_msg = str(error).lower()
+    
+    # Check for common database constraint violations that can be safely shown
+    if 'unique constraint' in error_msg or 'duplicate' in error_msg:
+        if 'username' in error_msg:
+            return "Username already exists."
+        elif 'email' in error_msg:
+            return "Email address already exists."
+        else:
+            return "The information provided conflicts with existing data."
+    
+    elif 'foreign key constraint' in error_msg:
+        return "Cannot complete operation due to data dependencies."
+    
+    elif 'not null constraint' in error_msg:
+        return "Required information is missing."
+    
+    else:
+        # For any other database error, return generic message
+        return "A database error occurred. Please try again."
+
 def ip_rate_limit(max_requests=MAX_ATTEMPTS, window=RATE_LIMIT_WINDOW):
     """
     Decorator to limit the number of login attempts from a single IP address
@@ -385,3 +446,111 @@ class EnhancedRateLimiter:
 
 # Create global rate limiter instances
 security_rate_limiter = EnhancedRateLimiter()
+
+def regenerate_session():
+    """
+    Regenerate session ID to prevent session fixation attacks.
+    Should be called after login and privilege escalation.
+    """
+    try:
+        from flask import session
+        import os
+        
+        # Store old session data
+        old_data = dict(session)
+        
+        # Clear session
+        session.clear()
+        
+        # Regenerate session ID by modifying the session
+        session.modified = True
+        
+        # Restore session data
+        for key, value in old_data.items():
+            if key != '_permanent':  # Don't restore permanent flag
+                session[key] = value
+                
+        # Set secure session configuration
+        session.permanent = True
+        
+        return True
+    except Exception as e:
+        current_app.logger.error(f"Error regenerating session: {str(e)}")
+        return False
+
+def secure_session_config(app):
+    """
+    Configure secure session settings for the Flask app
+    """
+    app.config.update(
+        SESSION_COOKIE_SECURE=True,  # Only send cookies over HTTPS
+        SESSION_COOKIE_HTTPONLY=True,  # Prevent XSS access to cookies
+        SESSION_COOKIE_SAMESITE='Lax',  # CSRF protection
+        PERMANENT_SESSION_LIFETIME=timedelta(hours=2),  # 2 hour session timeout
+    )
+    
+    # In development, allow non-HTTPS for testing
+    if app.config.get('ENV') == 'development':
+        app.config['SESSION_COOKIE_SECURE'] = False
+
+def validate_session_security():
+    """
+    Validate current session security and detect anomalies
+    """
+    try:
+        from flask import session, request
+        
+        # Check for session hijacking indicators
+        current_ip = request.remote_addr
+        current_user_agent = request.user_agent.string
+        
+        # Store initial session data for comparison
+        if '_session_ip' not in session:
+            session['_session_ip'] = current_ip
+            session['_session_user_agent'] = current_user_agent
+            session['_session_created'] = datetime.utcnow().isoformat()
+            return True
+            
+        # Validate IP consistency (with some tolerance for legitimate IP changes)
+        stored_ip = session.get('_session_ip')
+        if stored_ip and stored_ip != current_ip:
+            # Log suspicious activity
+            log_security_event(
+                'session_ip_change',
+                f'Session IP changed from {stored_ip} to {current_ip}',
+                'high'
+            )
+            
+        # Validate User-Agent consistency
+        stored_ua = session.get('_session_user_agent')
+        if stored_ua and stored_ua != current_user_agent:
+            log_security_event(
+                'session_ua_change',
+                f'Session User-Agent changed',
+                'medium'
+            )
+            
+        # Check session age
+        session_created = session.get('_session_created')
+        if session_created:
+            try:
+                created_time = datetime.fromisoformat(session_created)
+                session_age = datetime.utcnow() - created_time
+                
+                # Force re-authentication for very old sessions
+                if session_age > timedelta(hours=8):
+                    log_security_event(
+                        'session_expired',
+                        f'Session expired after {session_age}',
+                        'low'
+                    )
+                    return False
+            except ValueError:
+                # Invalid timestamp format
+                return False
+                
+        return True
+        
+    except Exception as e:
+        current_app.logger.error(f"Error validating session security: {str(e)}")
+        return False

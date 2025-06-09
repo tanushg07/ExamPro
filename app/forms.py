@@ -16,8 +16,19 @@ from app.models import User
 class UserEditForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired(), Length(min=2, max=64)])
     email = StringField('Email', validators=[DataRequired(), Email()])
-    user_type = SelectField('User Type', choices=[('student', 'Student'), ('teacher', 'Teacher'), ('admin', 'Admin')], validators=[DataRequired()])
+    user_type = SelectField('User Type', choices=[('student', 'Student'), ('teacher', 'Teacher')], validators=[DataRequired()])
     submit = SubmitField('Save Changes')
+    
+    def __init__(self, current_user=None, target_user=None, *args, **kwargs):
+        super(UserEditForm, self).__init__(*args, **kwargs)
+        # Only allow admin creation/editing for super admins
+        if current_user and current_user.is_super_admin():
+            self.user_type.choices.append(('admin', 'Admin'))
+        # Prevent privilege escalation - users cannot promote themselves or others to admin
+        elif target_user and target_user.user_type == 'admin':
+            # If editing an admin user, keep admin option but make it read-only
+            self.user_type.choices.append(('admin', 'Admin'))
+            self.user_type.render_kw = {'disabled': True}
 
 class CreateUserForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired(), Length(min=2, max=64)])
@@ -28,8 +39,14 @@ class CreateUserForm(FlaskForm):
         EqualTo('password_confirm', message='Passwords must match')
     ])
     password_confirm = PasswordField('Confirm Password', validators=[DataRequired()])
-    user_type = SelectField('User Type', choices=[('student', 'Student'), ('teacher', 'Teacher'), ('admin', 'Admin')], validators=[DataRequired()])
+    user_type = SelectField('User Type', choices=[('student', 'Student'), ('teacher', 'Teacher')], validators=[DataRequired()])
     submit = SubmitField('Create User')
+    
+    def __init__(self, current_user=None, *args, **kwargs):
+        super(CreateUserForm, self).__init__(*args, **kwargs)
+        # Only allow admin creation for super admins
+        if current_user and current_user.is_super_admin():
+            self.user_type.choices.append(('admin', 'Admin'))
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
@@ -56,7 +73,7 @@ class RegistrationForm(FlaskForm):
         DataRequired(),
         EqualTo('password', message='Passwords must match')
     ])
-    user_type = SelectField('Register as', choices=[('teacher', 'Teacher'), ('admin', 'Admin')], validators=[DataRequired()])
+    user_type = SelectField('Register as', choices=[('student', 'Student'), ('teacher', 'Teacher')], validators=[DataRequired()])
     submit = SubmitField('Register')
     
     # Custom validators
