@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import csv
 import bleach
+import re
 from flask import (
     Blueprint, render_template, redirect, url_for,
     flash, request, jsonify, abort, session, make_response, current_app
@@ -257,9 +258,7 @@ def validate_answer_input(question, value, attempt):
         max_length = 10000  # 10KB max
         if len(str(value)) > max_length:
             return False, f"Answer too long (max {max_length} characters)"
-        
-        # Content validation for suspicious patterns
-        import re
+          # Content validation for suspicious patterns
         suspicious_patterns = [
             r'<script[^>]*>',
             r'javascript:',
@@ -892,37 +891,52 @@ def exam_analytics(exam_id):
 @login_required
 @teacher_required
 def view_exam_reviews(exam_id):
-    exam = Exam.query.get_or_404(exam_id)
-    
-    if exam.creator_id != current_user.id:
-        abort(403)
-    
-    reviews = ExamReview.query.filter_by(exam_id=exam_id).order_by(ExamReview.created_at.desc()).all()
-    
-    stats = {
-        'total': len(reviews),
-        'average': exam.get_average_rating(),
-        'counts': {
-            '5': 0, '4': 0, '3': 0, '2': 0, '1': 0
+    """Simple view to show reviews for an exam - keeping it simple as requested"""
+    try:
+        exam = Exam.query.get_or_404(exam_id)
+        
+        # Check if current user is the creator
+        if exam.creator_id != current_user.id:
+            abort(403)
+        
+        # Get all reviews for this exam
+        reviews = ExamReview.query.filter_by(exam_id=exam_id).order_by(ExamReview.created_at.desc()).all()
+        
+        # Simple stats calculation
+        stats = {
+            'total': len(reviews),
+            'average': None,
+            'counts': {'5': 0, '4': 0, '3': 0, '2': 0, '1': 0}
         }
-    }
-    
-    for review in reviews:
-        stats['counts'][str(review.rating)] += 1
-    
-    if stats['total'] > 0:
-        for rating in stats['counts']:
-            stats['counts'][rating] = {
-                'count': stats['counts'][rating],
-                'percent': round((stats['counts'][rating] / stats['total']) * 100)
-            }
-    
-    return render_template(
-        'teacher/view_reviews.html',
-        exam=exam,
-        reviews=reviews,
-        stats=stats
-    )
+        
+        # Calculate basic stats if there are reviews
+        if reviews:
+            total_rating = sum(r.rating for r in reviews if r.rating)
+            stats['average'] = total_rating / len(reviews) if reviews else None
+            
+            for review in reviews:
+                if review.rating and 1 <= review.rating <= 5:
+                    stats['counts'][str(review.rating)] += 1
+        
+        # Convert counts to include percentages
+        if stats['total'] > 0:
+            for rating in stats['counts']:
+                count = stats['counts'][rating]
+                stats['counts'][rating] = {
+                    'count': count,
+                    'percent': round((count / stats['total']) * 100)
+                }
+        
+        return render_template(
+            'teacher/view_reviews.html',
+            exam=exam,
+            reviews=reviews,
+            stats=stats
+        )
+        
+    except Exception as e:
+        flash('Error loading reviews. Please try again.', 'error')
+        return redirect(url_for('teacher.view_exam', exam_id=exam_id))
 
 
 @teacher_bp.route('/review-queue', methods=['GET'])
