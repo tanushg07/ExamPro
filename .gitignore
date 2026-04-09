@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+venv/
+.venv/
+venv_broken_20260409/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Local runtime data
+instance/*.db
+instance/*.sqlite
+instance/*.sqlite3
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

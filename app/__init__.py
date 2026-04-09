@@ -5,6 +5,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail
 from flask_wtf.csrf import CSRFProtect, generate_csrf
 from datetime import timedelta
+import os
 
 from config import Config
 
@@ -29,6 +30,9 @@ def create_app(config_class=Config):
     app = Flask(__name__, 
                 template_folder='../templates',
                 static_folder='../static')
+
+    # Ensure Flask instance path exists for SQLite files and runtime data.
+    os.makedirs(app.instance_path, exist_ok=True)
     
     # Load configuration
     app.config.from_object(config_class)
@@ -115,6 +119,11 @@ def create_app(config_class=Config):
     @app.context_processor
     def inject_user():
         return dict(current_user=current_user)
+
+        @app.route('/healthz')
+        def healthz():
+                return {'status': 'ok'}, 200
+
       # Register template filters
     from app.filters import timesince, format_datetime, format_timedelta
     app.jinja_env.filters['timesince'] = timesince

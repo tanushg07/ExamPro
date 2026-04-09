@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: exampro-db
+    environment:
+      POSTGRES_DB: exampro
+      POSTGRES_USER: exampro
+      POSTGRES_PASSWORD: change-this-password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U exampro -d exampro"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  web:
+    build: .
+    container_name: exampro-web
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql+psycopg2://exampro:change-this-password@db:5432/exampro
+      SECRET_KEY: change-this-secret-key
+      SESSION_COOKIE_SECURE: "true"
+    volumes:
+      - ./instance:/app/instance
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys, urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/healthz', timeout=3); sys.exit(0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
