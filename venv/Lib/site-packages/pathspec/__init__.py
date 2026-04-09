@@ -1,10 +1,9 @@
 """
-The *pathspec* package provides pattern matching for file paths. So far
-this only includes Git's wildmatch pattern matching (the style used for
-".gitignore" files).
+The *pathspec* package provides pattern matching for file paths. So far this
+only includes Git's *gitignore* patterns.
 
-The following classes are imported and made available from the root of
-the `pathspec` package:
+The following classes are imported and made available from the root of the
+`pathspec` package:
 
 -	:class:`pathspec.gitignore.GitIgnoreSpec`
 
@@ -20,11 +19,10 @@ The following functions are also imported:
 
 -	:func:`pathspec.util.lookup_pattern`
 
-The following deprecated functions are also imported to maintain
-backward compatibility:
+The following deprecated functions are also imported to maintain backward
+compatibility:
 
--	:func:`pathspec.util.iter_tree` which is an alias for
-	:func:`pathspec.util.iter_tree_files`.
+-	:func:`pathspec.util.iter_tree`
 
 -	:func:`pathspec.util.match_files`
 """
@@ -38,27 +36,23 @@ from .pattern import (
 	RegexPattern)
 from .util import (
 	RecursionError,
-	iter_tree,
+	iter_tree,  # Deprecated since 0.10.0.
 	lookup_pattern,
-	match_files)
+	match_files)  # Deprecated since 0.10.0.
 
 from ._meta import (
 	__author__,
 	__copyright__,
 	__credits__,
-	__license__,
-	__version__,
-)
+	__license__)
+from ._version import (
+	__version__)
 
 # Load pattern implementations.
 from . import patterns
 
-# DEPRECATED: Expose the `GitIgnorePattern` class in the root module for
-# backward compatibility with v0.4.
-from .patterns.gitwildmatch import GitIgnorePattern
-
-# Declare private imports as part of the public interface. Deprecated
-# imports are deliberately excluded.
+# Declare private imports as part of the public interface. Deprecated imports
+# are deliberately excluded.
 __all__ = [
 	'GitIgnoreSpec',
 	'PathSpec',
@@ -70,7 +64,5 @@ __all__ = [
 	'__credits__',
 	'__license__',
 	'__version__',
-	'iter_tree',
 	'lookup_pattern',
-	'match_files',
 ]

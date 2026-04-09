@@ -1,39 +1,47 @@
 """
-This module provides an object oriented interface for pattern matching of files.
+This module provides :class:`.PathSpec` which is an object-oriented interface
+for pattern matching of files.
 """
+from __future__ import annotations
 
 from collections.abc import (
-	Collection as CollectionType)
+	Collection,
+	Iterable,
+	Iterator,
+	Sequence)
 from itertools import (
 	zip_longest)
 from typing import (
-	AnyStr,
-	Callable,  # Replaced by `collections.abc.Callable` in 3.9.
-	Collection,  # Replaced by `collections.abc.Collection` in 3.9.
-	Iterable,  # Replaced by `collections.abc.Iterable` in 3.9.
-	Iterator,  # Replaced by `collections.abc.Iterator` in 3.9.
+	Callable,  # Replaced by `collections.abc.Callable` in 3.9.2.
 	Optional,  # Replaced by `X | None` in 3.10.
-	Type,  # Replaced by `type` in 3.9.
 	TypeVar,
-	Union)  # Replaced by `X | Y` in 3.10.
+	Union,  # Replaced by `X | Y` in 3.10.
+	cast)
 
-from . import util
-from .pattern import (
+Self = TypeVar("Self", bound='PathSpec')
+"""
+:class:`.PathSpec` self type hint to support Python v<3.11 using PEP 673
+recommendation.
+"""
+
+from pathspec import util
+from pathspec.backend import (
+	_Backend,
+	BackendNamesHint)
+from pathspec._backends.agg import (
+	make_pathspec_backend)
+from pathspec.pattern import (
 	Pattern)
-from .util import (
+from pathspec._typing import (
+	AnyStr,  # Removed in 3.18.
+	deprecated)  # Added in 3.13.
+from pathspec.util import (
 	CheckResult,
 	StrPath,
 	TStrPath,
 	TreeEntry,
-	_filter_check_patterns,
 	_is_iterable,
 	normalize_file)
-
-Self = TypeVar("Self", bound="PathSpec")
-"""
-:class:`PathSpec` self type hint to support Python v<3.11 using PEP 673
-recommendation.
-"""
 
 
 class PathSpec(object):
@@ -42,26 +50,68 @@ class PathSpec(object):
 	:class:`.Pattern` instances.
 	"""
 
-	def __init__(self, patterns: Iterable[Pattern]) -> None:
+	def __init__(
+		self,
+		patterns: Union[Sequence[Pattern], Iterable[Pattern]],
+		*,
+		backend: Union[BackendNamesHint, str, None] = None,
+		_test_backend_factory: Optional[Callable[[Sequence[Pattern]], _Backend]] = None,
+	) -> None:
 		"""
-		Initializes the :class:`PathSpec` instance.
+		Initializes the :class:`.PathSpec` instance.
 
-		*patterns* (:class:`~collections.abc.Collection` or :class:`~collections.abc.Iterable`)
-		yields each compiled pattern (:class:`.Pattern`).
+		*patterns* (:class:`~collections.abc.Sequence` or :class:`~collections.abc.Iterable`)
+		contains each compiled pattern (:class:`.Pattern`). If not a sequence, it
+		will be converted to a :class:`list`.
+
+		*backend* (:class:`str` or :data:`None`) is the pattern (regular expression)
+		matching backend to use. Default is :data:`None` for "best" to use the best
+		available backend. Priority of backends is: "re2", "hyperscan", "simple".
+		The "simple" backend is always available.
 		"""
-		if not isinstance(patterns, CollectionType):
+		if not isinstance(patterns, Sequence):
 			patterns = list(patterns)
 
-		self.patterns: Collection[Pattern] = patterns
+		if backend is None:
+			backend = 'best'
+
+		backend = cast(BackendNamesHint, backend)
+		if _test_backend_factory is not None:
+			use_backend = _test_backend_factory(patterns)
+		else:
+			use_backend = self._make_backend(backend, patterns)
+
+		self._backend: _Backend = use_backend
 		"""
-		*patterns* (:class:`~collections.abc.Collection` of :class:`.Pattern`)
+		*_backend* (:class:`._Backend`) is the pattern (regular expression) matching
+		backend.
+		"""
+
+		self._backend_name: BackendNamesHint = backend
+		"""
+		*_backend_name* (:class:`str`) is the name of backend to use.
+		"""
+
+		self.patterns: Sequence[Pattern] = patterns
+		"""
+		*patterns* (:class:`~collections.abc.Sequence` of :class:`.Pattern`)
 		contains the compiled patterns.
 		"""
 
+	def __add__(self: Self, other: PathSpec) -> Self:
+		"""
+		Combines the :attr:`self.patterns <.PathSpec.patterns>` patterns from two
+		:class:`PathSpec` instances.
+		"""
+		if isinstance(other, PathSpec):
+			return self.__class__(self.patterns + other.patterns, backend=self._backend_name)
+		else:
+			return NotImplemented
+
 	def __eq__(self, other: object) -> bool:
 		"""
-		Tests the equality of this path-spec with *other* (:class:`PathSpec`)
-		by comparing their :attr:`~PathSpec.patterns` attributes.
+		Tests the equality of this path-spec with *other* (:class:`PathSpec`) by
+		comparing their :attr:`self.patterns <.PathSpec.patterns>` attributes.
 		"""
 		if isinstance(other, PathSpec):
 			paired_patterns = zip_longest(self.patterns, other.patterns)
@@ -69,33 +119,24 @@ class PathSpec(object):
 		else:
 			return NotImplemented
 
-	def __len__(self) -> int:
+	def __iadd__(self: Self, other: PathSpec) -> Self:
 		"""
-		Returns the number of compiled patterns this path-spec contains
-		(:class:`int`).
-		"""
-		return len(self.patterns)
-
-	def __add__(self: Self, other: "PathSpec") -> Self:
-		"""
-		Combines the :attr:`Pathspec.patterns` patterns from two
-		:class:`PathSpec` instances.
-		"""
-		if isinstance(other, PathSpec):
-			return self.__class__(self.patterns + other.patterns)
-		else:
-			return NotImplemented
-
-	def __iadd__(self: Self, other: "PathSpec") -> Self:
-		"""
-		Adds the :attr:`Pathspec.patterns` patterns from one :class:`PathSpec`
-		instance to this instance.
+		Adds the :attr:`self.patterns <.PathSpec.patterns>` from *other*
+		(:class:`PathSpec`) to this instance.
 		"""
 		if isinstance(other, PathSpec):
 			self.patterns += other.patterns
+			self._backend = self._make_backend(self._backend_name, self.patterns)
 			return self
 		else:
 			return NotImplemented
+
+	def __len__(self) -> int:
+		"""
+		Returns the number of :attr:`self.patterns <.PathSpec.patterns>` this
+		path-spec contains (:class:`int`).
+		"""
+		return len(self.patterns)
 
 	def check_file(
 		self,
@@ -105,17 +146,17 @@ class PathSpec(object):
 		"""
 		Check the files against this path-spec.
 
-		*file* (:class:`str` or :class:`os.PathLike`) is the file path to be
-		matched against :attr:`self.patterns <PathSpec.patterns>`.
+		*file* (:class:`str` or :class:`os.PathLike`) is the file path to be matched
+		against :attr:`self.patterns <.PathSpec.patterns>`.
 
 		*separators* (:class:`~collections.abc.Collection` of :class:`str`; or
 		:data:`None`) optionally contains the path separators to normalize. See
-		:func:`~pathspec.util.normalize_file` for more information.
+		:func:`.normalize_file` for more information.
 
-		Returns the file check result (:class:`~pathspec.util.CheckResult`).
+		Returns the file check result (:class:`.CheckResult`).
 		"""
 		norm_file = normalize_file(file, separators)
-		include, index = self._match_file(enumerate(self.patterns), norm_file)
+		include, index = self._backend.match_file(norm_file)
 		return CheckResult(file, include, index)
 
 	def check_files(
@@ -128,22 +169,21 @@ class PathSpec(object):
 
 		*files* (:class:`~collections.abc.Iterable` of :class:`str` or
 		:class:`os.PathLike`) contains the file paths to be checked against
-		:attr:`self.patterns <PathSpec.patterns>`.
+		:attr:`self.patterns <.PathSpec.patterns>`.
 
 		*separators* (:class:`~collections.abc.Collection` of :class:`str`; or
 		:data:`None`) optionally contains the path separators to normalize. See
-		:func:`~pathspec.util.normalize_file` for more information.
+		:func:`.normalize_file` for more information.
 
 		Returns an :class:`~collections.abc.Iterator` yielding each file check
-		result (:class:`~pathspec.util.CheckResult`).
+		result (:class:`.CheckResult`).
 		"""
 		if not _is_iterable(files):
 			raise TypeError(f"files:{files!r} is not an iterable.")
 
-		use_patterns = _filter_check_patterns(self.patterns)
 		for orig_file in files:
 			norm_file = normalize_file(orig_file, separators)
-			include, index = self._match_file(use_patterns, norm_file)
+			include, index = self._backend.match_file(norm_file)
 			yield CheckResult(orig_file, include, index)
 
 	def check_tree_files(
@@ -174,16 +214,19 @@ class PathSpec(object):
 		:data:`False`.
 
 		Returns an :class:`~collections.abc.Iterator` yielding each file check
-		result (:class:`~pathspec.util.CheckResult`).
+		result (:class:`.CheckResult`).
 		"""
 		files = util.iter_tree_files(root, on_error=on_error, follow_links=follow_links)
 		yield from self.check_files(files)
 
 	@classmethod
 	def from_lines(
-		cls: Type[Self],
+		cls: type[Self],
 		pattern_factory: Union[str, Callable[[AnyStr], Pattern]],
 		lines: Iterable[AnyStr],
+		*,
+		backend: Union[BackendNamesHint, str, None] = None,
+		_test_backend_factory: Optional[Callable[[Sequence[Pattern]], _Backend]] = None,
 	) -> Self:
 		"""
 		Compiles the pattern lines.
@@ -198,6 +241,11 @@ class PathSpec(object):
 		:class:`io.TextIOBase` (e.g., from :func:`open` or :class:`io.StringIO`) or
 		the result from :meth:`str.splitlines`.
 
+		*backend* (:class:`str` or :data:`None`) is the pattern (or regular
+		expression) matching backend to use. Default is :data:`None` for "best" to
+		use the best available backend. Priority of backends is: "re2", "hyperscan",
+		"simple". The "simple" backend is always available.
+
 		Returns the :class:`PathSpec` instance.
 		"""
 		if isinstance(pattern_factory, str):
@@ -210,7 +258,27 @@ class PathSpec(object):
 			raise TypeError(f"lines:{lines!r} is not an iterable.")
 
 		patterns = [pattern_factory(line) for line in lines if line]
-		return cls(patterns)
+		return cls(patterns, backend=backend, _test_backend_factory=_test_backend_factory)
+
+	@staticmethod
+	def _make_backend(
+		name: BackendNamesHint,
+		patterns: Sequence[Pattern],
+	) -> _Backend:
+		"""
+		.. warning:: This method is not part of the public API. It is subject to
+			change.
+
+		Create the backend for the patterns.
+
+		*name* (:class:`str`) is the name of the backend.
+
+		*patterns* (:class:`~collections.abc.Sequence` of :class:`.Pattern`)
+		contains the compiled patterns.
+
+		Returns the matcher (:class:`._Backend`).
+		"""
+		return make_pathspec_backend(name, patterns)
 
 	def match_entries(
 		self,
@@ -222,12 +290,12 @@ class PathSpec(object):
 		"""
 		Matches the entries to this path-spec.
 
-		*entries* (:class:`~collections.abc.Iterable` of :class:`~pathspec.util.TreeEntry`)
-		contains the entries to be matched against :attr:`self.patterns <PathSpec.patterns>`.
+		*entries* (:class:`~collections.abc.Iterable` of :class:`.TreeEntry`)
+		contains the entries to be matched against :attr:`self.patterns <.PathSpec.patterns>`.
 
 		*separators* (:class:`~collections.abc.Collection` of :class:`str`; or
 		:data:`None`) optionally contains the path separators to normalize. See
-		:func:`~pathspec.util.normalize_file` for more information.
+		:func:`.normalize_file` for more information.
 
 		*negate* (:class:`bool` or :data:`None`) is whether to negate the match
 		results of the patterns. If :data:`True`, a pattern matching a file will
@@ -235,28 +303,20 @@ class PathSpec(object):
 		:data:`False`.
 
 		Returns the matched entries (:class:`~collections.abc.Iterator` of
-		:class:`~pathspec.util.TreeEntry`).
+		:class:`.TreeEntry`).
 		"""
 		if not _is_iterable(entries):
 			raise TypeError(f"entries:{entries!r} is not an iterable.")
 
-		use_patterns = _filter_check_patterns(self.patterns)
 		for entry in entries:
 			norm_file = normalize_file(entry.path, separators)
-			include, _index = self._match_file(use_patterns, norm_file)
+			include, _index = self._backend.match_file(norm_file)
 
 			if negate:
 				include = not include
 
 			if include:
 				yield entry
-
-	_match_file = staticmethod(util.check_match_file)
-	"""
-	Match files using the `check_match_file()` utility function. Subclasses may
-	override this method as an instance method. It does not have to be a static
-	method. The signature for this method is subject to change.
-	"""
 
 	def match_file(
 		self,
@@ -266,17 +326,17 @@ class PathSpec(object):
 		"""
 		Matches the file to this path-spec.
 
-		*file* (:class:`str` or :class:`os.PathLike`) is the file path to be
-		matched against :attr:`self.patterns <PathSpec.patterns>`.
+		*file* (:class:`str` or :class:`os.PathLike`) is the file path to be matched
+		against :attr:`self.patterns <.PathSpec.patterns>`.
 
 		*separators* (:class:`~collections.abc.Collection` of :class:`str`)
 		optionally contains the path separators to normalize. See
-		:func:`~pathspec.util.normalize_file` for more information.
+		:func:`.normalize_file` for more information.
 
 		Returns :data:`True` if *file* matched; otherwise, :data:`False`.
 		"""
 		norm_file = normalize_file(file, separators)
-		include, _index = self._match_file(enumerate(self.patterns), norm_file)
+		include, _index = self._backend.match_file(norm_file)
 		return bool(include)
 
 	def match_files(
@@ -291,11 +351,11 @@ class PathSpec(object):
 
 		*files* (:class:`~collections.abc.Iterable` of :class:`str` or
 		:class:`os.PathLike`) contains the file paths to be matched against
-		:attr:`self.patterns <PathSpec.patterns>`.
+		:attr:`self.patterns <.PathSpec.patterns>`.
 
 		*separators* (:class:`~collections.abc.Collection` of :class:`str`; or
 		:data:`None`) optionally contains the path separators to normalize. See
-		:func:`~pathspec.util.normalize_file` for more information.
+		:func:`.normalize_file` for more information.
 
 		*negate* (:class:`bool` or :data:`None`) is whether to negate the match
 		results of the patterns. If :data:`True`, a pattern matching a file will
@@ -308,10 +368,9 @@ class PathSpec(object):
 		if not _is_iterable(files):
 			raise TypeError(f"files:{files!r} is not an iterable.")
 
-		use_patterns = _filter_check_patterns(self.patterns)
 		for orig_file in files:
 			norm_file = normalize_file(orig_file, separators)
-			include, _index = self._match_file(use_patterns, norm_file)
+			include, _index = self._backend.match_file(norm_file)
 
 			if negate:
 				include = not include
@@ -354,6 +413,18 @@ class PathSpec(object):
 		entries = util.iter_tree_entries(root, on_error=on_error, follow_links=follow_links)
 		yield from self.match_entries(entries, negate=negate)
 
+	# NOTICE: The deprecation warning was only added in 1.0.0 (from 2026-01-05).
+	@deprecated((
+		"PathSpec.match_tree() is deprecated. Use .match_tree_files() instead."
+	))
+	def match_tree(self, *args, **kw) -> Iterator[str]:
+		"""
+		.. version-deprecated:: 0.3.2
+			This is an alias for the :meth:`self.match_tree_files <.PathSpec.match_tree_files>`
+			method.
+		"""
+		return self.match_tree_files(*args, **kw)
+
 	def match_tree_files(
 		self,
 		root: StrPath,
@@ -383,12 +454,7 @@ class PathSpec(object):
 		exclude the file rather than include it. Default is :data:`None` for
 		:data:`False`.
 
-		Returns the matched files (:class:`~collections.abc.Iterable` of
-		:class:`str`).
+		Returns the matched files (:class:`~collections.abc.Iterable` of :class:`str`).
 		"""
 		files = util.iter_tree_files(root, on_error=on_error, follow_links=follow_links)
 		yield from self.match_files(files, negate=negate)
-
-	# Alias `match_tree_files()` as `match_tree()` for backward compatibility
-	# before v0.3.2.
-	match_tree = match_tree_files
