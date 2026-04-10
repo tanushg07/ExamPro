@@ -15,6 +15,8 @@ jobs:
         env:
           MYSQL_ROOT_PASSWORD: 852456
           MYSQL_DATABASE: exam_platform_test
+          MYSQL_USER: exam_user
+          MYSQL_PASSWORD: exam_pass
         ports:
           - 3306:3306
         options: >-
@@ -24,7 +26,7 @@ jobs:
           --health-retries=10
 
     env:
-      DATABASE_URL: mysql+mysqlconnector://root:852456@127.0.0.1/exam_platform_test
+      DATABASE_URL: mysql+mysqlconnector://exam_user:exam_pass@127.0.0.1/exam_platform_test
       SECRET_KEY: ci-secret-key
 
     steps:
@@ -51,8 +53,8 @@ jobs:
               try:
                   conn = mysql.connector.connect(
                       host="127.0.0.1",
-                      user="root",
-                      password="852456",
+                    user="exam_user",
+                    password="exam_pass",
                       database="exam_platform_test",
                   )
                   cur = conn.cursor()
@@ -79,7 +81,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest -q
+          pytest -q tests
 
       - name: Build Docker image
         run: |

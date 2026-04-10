@@ -81,19 +81,20 @@ def create_app(config_class=Config):
     app.register_blueprint(admin_bp)
     app.register_blueprint(group_bp)
     
-    # Now initialize background tasks with a fully set up app
+    # Now initialize background tasks with a fully set up app.
+    # Skip scheduler during tests to avoid side effects in CI/pytest runs.
     with app.app_context():
         from app.background_tasks import register_task, start_scheduler
         from app.notifications import notify_exam_deadline_approaching
-        
+
         # Ensure database is initialized
         db.create_all()
-        
+
         # Register the notification task to run every hour
         register_task(notify_exam_deadline_approaching, 3600, "exam_deadline_notifications")
-        
-    # Start the scheduler in the background
-        start_scheduler(app)
+
+        if not app.config.get('TESTING'):
+            start_scheduler(app)
     
     # Error handlers
     @app.errorhandler(404)
