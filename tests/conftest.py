@@ -7,7 +7,10 @@ from config import Config
 
 class TestConfig(Config):
     # Use a separate test database
-    SQLALCHEMY_DATABASE_URI = 'mysql+mysqlconnector://root:852456@localhost/exam_platform_test'
+    SQLALCHEMY_DATABASE_URI = os.environ.get(
+        'DATABASE_URL',
+        'mysql+mysqlconnector://root:852456@127.0.0.1/exam_platform_test'
+    )
     WTF_CSRF_ENABLED = False
     LOGIN_DISABLED = True
     TESTING = True
