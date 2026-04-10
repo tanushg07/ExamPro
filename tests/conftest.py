@@ -6,14 +6,21 @@ from app.models import db, User, Exam, Question
 from config import Config
 
 class TestConfig(Config):
-    # Use a separate test database
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        'DATABASE_URL',
-        'mysql+mysqlconnector://root:852456@127.0.0.1/exam_platform_test'
-    )
+    # Use SQLite in-memory database for fast, dependency-free tests
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    SQLALCHEMY_ENGINE_OPTIONS = {'pool_pre_ping': True}
     WTF_CSRF_ENABLED = False
     LOGIN_DISABLED = True
     TESTING = True
+    # Disable secure-only cookies so the test client (HTTP) can set them
+    SESSION_COOKIE_SECURE = False
+
+
+class StrictAuthTestConfig(TestConfig):
+    """Like TestConfig but with LOGIN_DISABLED = False.
+    Use when testing that unauthenticated requests are redirected to login.
+    """
+    LOGIN_DISABLED = False
 
 @pytest.fixture
 def app():
@@ -29,8 +36,24 @@ def app():
         db.drop_all()
 
 @pytest.fixture
+def strict_auth_app():
+    """App with LOGIN_DISABLED=False for testing redirect behaviour."""
+    application = create_app(StrictAuthTestConfig)
+    with application.app_context():
+        db.drop_all()
+        db.create_all()
+        yield application
+        db.session.remove()
+        db.drop_all()
+
+@pytest.fixture
 def client(app):
     return app.test_client()
+
+@pytest.fixture
+def strict_client(strict_auth_app):
+    """Test client that enforces @login_required redirects."""
+    return strict_auth_app.test_client()
 
 @pytest.fixture
 def runner(app):
@@ -101,3 +124,4 @@ def sample_exam(app, teacher_user):
     db.session.add(mcq)
     db.session.commit()
     return exam
+

@@ -810,7 +810,7 @@ def exam_analytics(exam_id):
                 Question.points,
                 Question.question_type,
                 func.count(Answer.id).label('answer_count'),
-                func.sum(case([(Answer.is_correct == True, 1)], else_=0)).label('correct_count')
+                func.sum(case((Answer.is_correct == True, 1), else_=0)).label('correct_count')
             ).outerjoin(
                 Answer, Answer.question_id == Question.id
             ).filter(
@@ -966,7 +966,7 @@ def view_analytics():
     
     attempt_stats = db.session.query(
         func.count(ExamAttempt.id).label('total_attempts'),
-        func.count(case([(ExamAttempt.is_completed == True, 1)])).label('completed_attempts'),
+        func.count(case((ExamAttempt.is_completed == True, 1))).label('completed_attempts'),
         func.avg(ExamAttempt.score).label('average_score')
     ).join(Exam).filter(Exam.creator_id == current_user.id).first()
     

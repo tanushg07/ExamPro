@@ -3,7 +3,7 @@ from flask import (
     flash, request, session
 )
 from flask_login import login_user, logout_user, login_required, current_user
-from werkzeug.urls import url_parse
+from urllib.parse import urlparse as url_parse
 from sqlalchemy import func
 
 from app.models import db, User, Exam, ExamAttempt
