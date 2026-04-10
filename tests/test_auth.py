@@ -1,5 +1,5 @@
 import pytest
-from app.models import User
+from app.models import User, db
 
 def test_register_and_login(client, app):    # Register a new user
     with app.app_context():
@@ -7,12 +7,20 @@ def test_register_and_login(client, app):    # Register a new user
             'username': 'newuser',
             'email': 'newuser@example.com',
             'password': 'newpassword123',
-            'password_confirm': 'newpassword123',  # Correct field name
+            'password_confirm': 'newpassword123',
             'user_type': 'student',
-            'csrf_token': 'dummy'  # Add CSRF token since WTF_CSRF_ENABLED is True
+            'csrf_token': 'dummy'
         }, follow_redirects=True)
-        # Check that the user was created
-        assert User.query.filter_by(username='newuser').first() is not None
+
+        # Public registration is intentionally blocked.
+        assert b'Registration is only available through administrators' in response.data
+        assert User.query.filter_by(username='newuser').first() is None
+
+        # Create a user directly to verify login flow.
+        user = User(username='newuser', email='newuser@example.com', user_type='student')
+        user.set_password('newpassword123')
+        db.session.add(user)
+        db.session.commit()
 
     # Login with the new user
     response = client.post('/login', data={
