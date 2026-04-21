@@ -249,5 +249,3 @@ docker compose logs -f web
 No license file is currently declared in this repository.
 
 ---
-
-If you wanted a "crazy" README update, mission accomplished: this one is fast to scan, complete enough to onboard a teammate, and aligned with your real code and CI behavior.
